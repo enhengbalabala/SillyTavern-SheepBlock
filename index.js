@@ -1,5 +1,5 @@
 /**
- * Silly Game Plus - SillyTavern 专属小游戏扩展插件
+ * Silly Game Plus - SillyTavern 专属小游戏扩展插件 (手机/PC全端深度适配版)
  * 包含：
  * 1. 🐑 羊了个羊 (爽玩增强版：道具5次+无限补充+5格暂存区)
  * 2. 🧱 现代俄罗斯方块 (7-Bag 发牌 + 幽灵投影 + Hold暂存 + 触屏虚拟手柄)
@@ -10,6 +10,7 @@
 
   const PLUGIN_ID = 'silly-game-plus';
   const LAUNCHER_POS_KEY = 'st-game-plus-launcher-pos';
+  const LAUNCHER_ENABLED_KEY = 'st-game-plus-launcher-enabled';
 
   // ================= 1. 程序化音频合成引擎 (零外部文件) =================
   class SoundEngine {
@@ -19,9 +20,7 @@
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         if (AudioCtx) this.ctx = new AudioCtx();
-      } catch (e) {
-        console.warn('AudioContext 初始化跳过:', e);
-      }
+      } catch (e) {}
     }
 
     resume() {
@@ -120,7 +119,7 @@
       this.isAnimating = false;
       this.hasRevived = false;
 
-      // 超级扩充道具：初始各 5 次
+      // 爽玩扩容道具：初始各 5 次
       this.toolsCount = { moveOut: 5, undo: 5, shuffle: 5 };
 
       this.initDOM();
@@ -203,7 +202,6 @@
         </div>
       `;
 
-      // 绑定元素
       this.stageEl = this.container.querySelector('#sheepStage');
       this.dockContainer = this.container.querySelector('#sheepDockCards');
       this.holdingSlots = this.container.querySelector('#sheepHoldingSlots');
@@ -318,7 +316,6 @@
 
     generateLevel2() {
       const positions = [];
-      // 0~5 层交错大金字塔
       for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
           if (Math.random() > 0.15) positions.push({ x: 62 + c * 48, y: 55 + r * 54, z: 0 });
@@ -337,11 +334,10 @@
       }
       positions.push({ x: 158, y: 160, z: 4 });
 
-      // 两翼暗牌堆
+      // 两翼暗牌堆与底部备用
       for (let i = 0; i < 8; i++) positions.push({ x: 10, y: 75 + i * 5, z: 10 + i });
       for (let i = 0; i < 8; i++) positions.push({ x: 302, y: 75 + i * 5, z: 10 + i });
-      // 底部备用牌
-      for (let i = 0; i < 4; i++) positions.push({ x: 70 + i * 58, y: 350, z: 1 });
+      for (let i = 0; i < 4; i++) positions.push({ x: 70 + i * 58, y: 345, z: 1 });
 
       let total = positions.length;
       const rem = total % 3;
@@ -481,7 +477,6 @@
       }
 
       card.state = 'dock';
-      // 自动聚拢相同图案
       let insertIdx = -1;
       for (let i = this.dockList.length - 1; i >= 0; i--) {
         if (this.dockList[i].type === card.type) {
@@ -710,7 +705,7 @@
       this.container = container;
       this.cols = 10;
       this.rows = 20;
-      this.blockSize = 18; // Canvas 绘图单元格像素尺寸
+      this.blockSize = 18;
 
       this.board = Array.from({ length: this.rows }, () => Array(this.cols).fill(0));
       this.score = 0;
@@ -722,7 +717,6 @@
       this.holdPiece = null;
       this.canHold = true;
       this.isGameOver = false;
-      this.isPaused = false;
       this.dropInterval = 800;
       this.lastDropTime = 0;
       this.rafId = null;
@@ -740,7 +734,7 @@
             <div class="tetris-sidebar">
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Hold</div>
-                <canvas id="tetrisHoldCanvas" class="tetris-preview-canvas" width="60" height="60"></canvas>
+                <canvas id="tetrisHoldCanvas" class="tetris-preview-canvas" width="50" height="50"></canvas>
               </div>
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Level</div>
@@ -761,14 +755,14 @@
             <div class="tetris-sidebar">
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Next</div>
-                <canvas id="tetrisNextCanvas" class="tetris-preview-canvas" width="60" height="60"></canvas>
+                <canvas id="tetrisNextCanvas" class="tetris-preview-canvas" width="50" height="50"></canvas>
               </div>
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Score</div>
                 <div class="tetris-panel-val" id="tetrisScore">0</div>
               </div>
-              <div class="tetris-panel-box" style="padding: 4px;">
-                <button class="sheep-mini-btn" id="tetrisRestartBtn" style="width: 100%;">🔄 重开</button>
+              <div class="tetris-panel-box" style="padding: 2px;">
+                <button class="sheep-mini-btn" id="tetrisRestartBtn" style="width: 100%;">🔄</button>
               </div>
             </div>
           </div>
@@ -821,45 +815,25 @@
     }
 
     bindControls() {
-      // 键盘操控
       this.keyHandler = (e) => {
         if (this.isGameOver) return;
         switch (e.code) {
-          case 'ArrowLeft':
-          case 'KeyA':
-            this.move(-1);
-            e.preventDefault();
-            break;
-          case 'ArrowRight':
-          case 'KeyD':
-            this.move(1);
-            e.preventDefault();
-            break;
-          case 'ArrowDown':
-          case 'KeyS':
-            this.drop();
-            e.preventDefault();
-            break;
-          case 'ArrowUp':
-          case 'KeyW':
-            this.rotate();
-            e.preventDefault();
-            break;
+          case 'ArrowLeft': case 'KeyA':
+            this.move(-1); e.preventDefault(); break;
+          case 'ArrowRight': case 'KeyD':
+            this.move(1); e.preventDefault(); break;
+          case 'ArrowDown': case 'KeyS':
+            this.drop(); e.preventDefault(); break;
+          case 'ArrowUp': case 'KeyW':
+            this.rotate(); e.preventDefault(); break;
           case 'Space':
-            this.hardDrop();
-            e.preventDefault();
-            break;
-          case 'KeyC':
-          case 'ShiftLeft':
-          case 'ShiftRight':
-            this.hold();
-            e.preventDefault();
-            break;
+            this.hardDrop(); e.preventDefault(); break;
+          case 'KeyC': case 'ShiftLeft': case 'ShiftRight':
+            this.hold(); e.preventDefault(); break;
         }
       };
       window.addEventListener('keydown', this.keyHandler);
 
-      // 虚拟按键操控
       const addClick = (id, fn) => {
         const btn = this.container.querySelector(id);
         if (btn) {
@@ -909,7 +883,6 @@
       this.gameLoop(this.lastDropTime);
     }
 
-    // 7-Bag 随机发牌
     popBag() {
       if (this.bag.length === 0) {
         this.bag = ['I', 'J', 'L', 'O', 'S', 'T', 'Z'];
@@ -933,7 +906,6 @@
       this.currentPiece.y = 0;
       this.canHold = true;
 
-      // 生成时碰撞即游戏失败
       if (this.collide(this.currentPiece.x, this.currentPiece.y, this.currentPiece.matrix)) {
         this.gameOver();
       }
@@ -968,10 +940,8 @@
     rotate() {
       if (this.isGameOver) return;
       const m = this.currentPiece.matrix;
-      // 矩阵顺时针旋转
       const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());
 
-      // 简单踢墙检测
       const kicks = [0, -1, 1, -2, 2];
       for (const k of kicks) {
         if (!this.collide(this.currentPiece.x + k, this.currentPiece.y, rotated)) {
@@ -988,7 +958,7 @@
       if (this.isGameOver) return;
       if (!this.collide(this.currentPiece.x, this.currentPiece.y + 1, this.currentPiece.matrix)) {
         this.currentPiece.y += 1;
-        this.score += 1; // 软降加分
+        this.score += 1;
         this.scoreEl.textContent = this.score;
         this.draw();
         return true;
@@ -1005,7 +975,7 @@
         this.currentPiece.y += 1;
         droppedCells++;
       }
-      this.score += droppedCells * 2; // 硬降奖励分
+      this.score += droppedCells * 2;
       this.scoreEl.textContent = this.score;
       sound.playDock();
       this.lockPiece();
@@ -1069,7 +1039,7 @@
           this.board.splice(r, 1);
           this.board.unshift(Array(this.cols).fill(0));
           cleared++;
-          r++; // 重新检测当前行
+          r++;
         }
       }
 
@@ -1111,7 +1081,6 @@
       this.rafId = requestAnimationFrame((t) => this.gameLoop(t));
     }
 
-    // 幽灵阴影计算
     getGhostY() {
       let ghostY = this.currentPiece.y;
       while (!this.collide(this.currentPiece.x, ghostY + 1, this.currentPiece.matrix)) {
@@ -1124,7 +1093,6 @@
       const bs = this.blockSize;
       this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-      // 绘制背景微弱网格
       this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
       this.ctx.lineWidth = 1;
       for (let r = 0; r <= this.rows; r++) {
@@ -1140,7 +1108,6 @@
         this.ctx.stroke();
       }
 
-      // 绘制固定棋盘方块
       for (let r = 0; r < this.rows; r++) {
         for (let c = 0; c < this.cols; c++) {
           if (this.board[r][c]) {
@@ -1149,7 +1116,6 @@
         }
       }
 
-      // 绘制幽灵投影方块 (Ghost Piece)
       if (this.currentPiece) {
         const gy = this.getGhostY();
         const m = this.currentPiece.matrix;
@@ -1161,7 +1127,6 @@
           }
         }
 
-        // 绘制当前正在下落的方块
         for (let r = 0; r < m.length; r++) {
           for (let c = 0; c < m[r].length; c++) {
             if (m[r][c]) {
@@ -1176,7 +1141,6 @@
       ctx.fillStyle = color;
       ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
 
-      // 高光边框质感
       ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.fillRect(x + 1, y + 1, size - 2, 2);
       ctx.fillRect(x + 1, y + 1, 2, size - 2);
@@ -1198,7 +1162,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (!piece) return;
       const m = piece.matrix;
-      const size = 12;
+      const size = 10;
       const offsetX = (canvas.width - m[0].length * size) / 2;
       const offsetY = (canvas.height - m.length * size) / 2;
 
@@ -1218,13 +1182,20 @@
   // ================= 4. SillyTavern 插件全局路由与悬浮球管理 =================
   class SillyGamePlugin {
     constructor() {
-      this.activeGame = 'sheep'; // 'sheep' | 'tetris'
+      this.activeGame = 'sheep';
       this.sheepInstance = null;
       this.tetrisInstance = null;
+      this.launcherVisible = true;
+
+      const savedLauncher = localStorage.getItem(LAUNCHER_ENABLED_KEY);
+      if (savedLauncher !== null) {
+        this.launcherVisible = savedLauncher === 'true';
+      }
 
       this.initLauncher();
       this.initModal();
       this.bindShortcuts();
+      this.tryInjectSettings();
     }
 
     initLauncher() {
@@ -1240,7 +1211,10 @@
         </svg>
       `;
 
-      // 恢复历史位置
+      if (!this.launcherVisible) {
+        launcher.style.display = 'none';
+      }
+
       const savedPos = localStorage.getItem(LAUNCHER_POS_KEY);
       if (savedPos) {
         try {
@@ -1252,7 +1226,6 @@
         } catch (e) {}
       }
 
-      // 拖拽逻辑
       let isDragging = false;
       let startX = 0, startY = 0;
       let initLeft = 0, initTop = 0;
@@ -1275,8 +1248,8 @@
         const dy = e.clientY - startY;
         if (Math.hypot(dx, dy) > 4) hasMoved = true;
 
-        let curX = Math.max(10, Math.min(window.innerWidth - 62, initLeft + dx));
-        let curY = Math.max(10, Math.min(window.innerHeight - 62, initTop + dy));
+        let curX = Math.max(10, Math.min(window.innerWidth - 56, initLeft + dx));
+        let curY = Math.max(10, Math.min(window.innerHeight - 56, initTop + dy));
 
         launcher.style.left = `${curX}px`;
         launcher.style.top = `${curY}px`;
@@ -1304,6 +1277,53 @@
       document.body.appendChild(launcher);
     }
 
+    // 尝试在 SillyTavern 的“扩展设置”面板中挂载菜单卡片
+    tryInjectSettings() {
+      let attempts = 0;
+      const checkAndInject = () => {
+        const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
+        if (container && !document.getElementById('st-sheepblock-settings')) {
+          const card = document.createElement('div');
+          card.id = 'st-sheepblock-settings';
+          card.className = 'stgc-settings-card';
+          card.innerHTML = `
+            <div class="stgc-settings-card-title">🎮 SillyTavern SheepBlock (小游戏中心)</div>
+            <button type="button" class="stgc-settings-open-btn" id="stgcOpenDirectBtn">
+              🎮 启动游戏中心 (羊了个羊 & 俄罗斯方块)
+            </button>
+            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#cbd5e1; cursor:pointer;">
+              <input type="checkbox" id="stgcToggleLauncherCb" ${this.launcherVisible ? 'checked' : ''}>
+              <span>在屏幕右下角显示浮动手柄悬浮球</span>
+            </label>
+          `;
+          container.appendChild(card);
+
+          card.querySelector('#stgcOpenDirectBtn').addEventListener('click', () => {
+            this.openModal();
+          });
+
+          card.querySelector('#stgcToggleLauncherCb').addEventListener('change', (e) => {
+            this.setLauncherVisible(e.target.checked);
+          });
+
+          return true;
+        }
+        if (attempts++ < 30) {
+          setTimeout(checkAndInject, 500);
+        }
+      };
+      checkAndInject();
+    }
+
+    setLauncherVisible(visible) {
+      this.launcherVisible = visible;
+      localStorage.setItem(LAUNCHER_ENABLED_KEY, String(visible));
+      const launcher = document.getElementById(`${PLUGIN_ID}-launcher`);
+      if (launcher) {
+        launcher.style.display = visible ? 'flex' : 'none';
+      }
+    }
+
     initModal() {
       if (document.getElementById(`${PLUGIN_ID}-modal`)) return;
 
@@ -1315,7 +1335,7 @@
         <div class="stgc-window" id="${PLUGIN_ID}-win">
           <header class="stgc-header">
             <div class="stgc-header-left">
-              <span>🎮 Silly Game Plus</span>
+              <span>🎮 SheepBlock</span>
             </div>
             <div class="stgc-tabs">
               <button class="stgc-tab-btn active" data-game="sheep">🐑 羊了个羊</button>
@@ -1333,7 +1353,6 @@
         </div>
       `;
 
-      // 遮罩点击关闭
       mask.addEventListener('click', (e) => {
         if (e.target === mask) this.closeModal();
       });
@@ -1342,7 +1361,6 @@
       this.mask = mask;
       this.win = mask.querySelector(`#${PLUGIN_ID}-win`);
 
-      // Tabs 切换
       const tabBtns = mask.querySelectorAll('.stgc-tab-btn');
       tabBtns.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1352,7 +1370,6 @@
         });
       });
 
-      // 关闭与全屏
       mask.querySelector('#stgcCloseBtn').addEventListener('click', () => this.closeModal());
       mask.querySelector('#stgcFullscreenBtn').addEventListener('click', () => {
         this.win.classList.toggle('fullscreen');
@@ -1416,10 +1433,12 @@
     }
   }
 
-  // 初始化扩展
+  // 全局辅助与初始化
+  window.openSheepBlock = () => window.sillyGamePlus?.openModal();
+
   function init() {
     window.sillyGamePlus = new SillyGamePlugin();
-    console.log('[Silly Game Plus] 酒馆小游戏插件成功挂载！');
+    console.log('[SillyTavern SheepBlock] 小游戏插件已成功加载与挂载！');
   }
 
   if (document.readyState === 'loading') {
