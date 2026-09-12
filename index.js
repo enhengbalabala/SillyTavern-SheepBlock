@@ -1440,6 +1440,14 @@
         </svg>
       `;
 
+      if (!this.launcherVisible) {
+        launcher.style.display = 'none';
+        launcher.style.visibility = 'hidden';
+        launcher.style.opacity = '0';
+        launcher.style.left = '-9999px';
+        launcher.style.top = '-9999px';
+      }
+
       let drag = null;
       launcher.addEventListener('pointerdown', (e) => {
         if (e.button !== undefined && e.button !== 0) return;
@@ -1481,26 +1489,49 @@
 
       document.body.append(launcher);
 
-      const saved = localStorage.getItem(LAUNCHER_POS_KEY);
-      if (saved) {
-        try {
-          const pos = JSON.parse(saved);
-          this.setLauncherPosition(pos.x, pos.y, false);
-        } catch (e) {
+      if (this.launcherVisible) {
+        const saved = localStorage.getItem(LAUNCHER_POS_KEY);
+        if (saved) {
+          try {
+            const pos = JSON.parse(saved);
+            this.setLauncherPosition(pos.x, pos.y, false);
+          } catch (e) {
+            requestAnimationFrame(() => this.resetLauncherPosition());
+          }
+        } else {
           requestAnimationFrame(() => this.resetLauncherPosition());
         }
-      } else {
-        requestAnimationFrame(() => this.resetLauncherPosition());
       }
     }
 
     setLauncherVisible(visible) {
       this.launcherVisible = visible;
-      localStorage.setItem(LAUNCHER_HIDDEN_KEY, visible ? '0' : '1');
+      try { localStorage.setItem(LAUNCHER_HIDDEN_KEY, visible ? '0' : '1'); } catch (e) {}
       const launcher = document.getElementById(`${PLUGIN_ID}-launcher`);
       if (launcher) {
         launcher.classList.toggle('is-hidden', !visible);
-        launcher.style.display = visible ? 'flex' : 'none';
+        if (visible) {
+          launcher.style.display = 'flex';
+          launcher.style.visibility = 'visible';
+          launcher.style.opacity = '1';
+          const saved = localStorage.getItem(LAUNCHER_POS_KEY);
+          if (saved) {
+            try {
+              const pos = JSON.parse(saved);
+              this.setLauncherPosition(pos.x, pos.y, false);
+            } catch (e) {
+              this.resetLauncherPosition();
+            }
+          } else {
+            this.resetLauncherPosition();
+          }
+        } else {
+          launcher.style.display = 'none';
+          launcher.style.visibility = 'hidden';
+          launcher.style.opacity = '0';
+          launcher.style.left = '-9999px';
+          launcher.style.top = '-9999px';
+        }
       }
 
       const cb = document.getElementById('stgcToggleLauncherCb');
@@ -1637,15 +1668,16 @@
     startHeartbeatHooks() {
       setInterval(() => {
         this.injectSettingsDrawer();
-        this.injectExtensionsMenuButton();
+        this.injectNativeMenuEntries();
         this.ensureLauncherAlive();
-      }, 800);
+      }, 700);
 
-      // 额外对点击按钮进行即时拦截绑定
+      // 对输入框左侧菜单按钮与扩展按钮进行即时拦截绑定
       document.addEventListener('click', (e) => {
         const target = e.target;
-        if (target && (target.closest('#extensionsMenuButton') || target.closest('#options_button') || target.closest('.extensions_menu_button'))) {
-          setTimeout(() => this.injectExtensionsMenuButton(), 50);
+        if (target && (target.closest('#options_button') || target.closest('#extensionsMenuButton') || target.closest('.extensions_menu_button'))) {
+          setTimeout(() => this.injectNativeMenuEntries(), 30);
+          setTimeout(() => this.injectNativeMenuEntries(), 150);
         }
       }, true);
     }
@@ -1690,8 +1722,35 @@
       }
     }
 
-    // 精准挂载至酒馆 #extensionsMenu 菜单 (图三所示位置)
-    injectExtensionsMenuButton() {
+    // 同时精准挂载至酒馆手机端 #options 菜单 (图三) 以及桌面端 #extensionsMenu 菜单
+    injectNativeMenuEntries() {
+      // 1. 注入到图三中的输入框左侧弹出菜单 (#options .options-content)
+      const optionsContainer = document.querySelector('#options .options-content') ||
+                               document.getElementById('options');
+      if (optionsContainer && !document.getElementById('option_sheepblock')) {
+        const opt = document.createElement('a');
+        opt.id = 'option_sheepblock';
+        opt.className = 'sheepblock-menu-opt';
+        opt.setAttribute('role', 'button');
+        opt.setAttribute('tabindex', '0');
+        opt.innerHTML = `
+          <i class="fa-lg fa-solid fa-gamepad"></i>
+          <span>SheepBlock 小游戏</span>
+        `;
+        opt.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const optRoot = document.getElementById('options');
+          if (optRoot) optRoot.style.display = 'none';
+          if (window.jQuery) {
+            try { window.jQuery('#options').hide(); } catch (err) {}
+          }
+          this.openModal();
+        });
+        optionsContainer.appendChild(opt);
+      }
+
+      // 2. 注入到桌面端魔法棒扩展菜单 (#extensionsMenu)
       const menuContainer = document.getElementById('extensionsMenu') || 
                             document.getElementById('extensions_menu') || 
                             document.querySelector('#extensionsMenu') ||
@@ -1715,7 +1774,6 @@
 
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          // 关闭当前酒馆下拉菜单
           if (menuContainer) menuContainer.style.display = 'none';
           if (window.jQuery) {
             try { window.jQuery(menuContainer).hide(); } catch (err) {}

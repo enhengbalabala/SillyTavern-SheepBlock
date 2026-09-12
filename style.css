@@ -32,7 +32,11 @@
 .stgc-launcher.is-hidden {
   display: none !important;
   visibility: hidden !important;
+  opacity: 0 !important;
   pointer-events: none !important;
+  transform: scale(0) !important;
+  left: -9999px !important;
+  top: -9999px !important;
 }
 
 .stgc-launcher-icon {
@@ -47,8 +51,12 @@
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
   width: 100vw !important;
-  height: 100vh !important;
+  width: 100% !important;
+  height: 100% !important;
+  height: 100dvh !important;
   background: rgba(10, 12, 18, 0.8) !important;
   backdrop-filter: blur(8px) !important;
   -webkit-backdrop-filter: blur(8px) !important;
@@ -58,6 +66,7 @@
   z-index: 2147483001 !important;
   opacity: 0;
   transition: opacity 0.2s ease-out !important;
+  box-sizing: border-box !important;
 }
 
 .stgc-modal-mask.show {
@@ -84,14 +93,20 @@
   animation: stgcWindowPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .stgc-window {
-    width: 100vw !important;
-    max-width: 100vw !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
     height: 100% !important;
     max-height: 100% !important;
     border-radius: 0 !important;
     border: none !important;
+    margin: 0 !important;
   }
 }
 
@@ -237,11 +252,12 @@
   background: #72b050 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><circle cx="15" cy="15" r="2" fill="%23ffffff" opacity="0.08"/><circle cx="45" cy="40" r="3" fill="%23ffffff" opacity="0.08"/><path d="M25 45 Q30 35 35 45" stroke="%23ffffff" stroke-width="1.5" fill="none" opacity="0.1"/></svg>') repeat;
   display: flex !important;
   flex-direction: column !important;
-  justify-content: space-between !important;
+  justify-content: flex-start !important;
   position: relative;
   user-select: none;
   overflow: hidden;
   height: 100% !important;
+  max-height: 100% !important;
   box-sizing: border-box;
 }
 
@@ -295,7 +311,7 @@
 
 /* 5格暂存区 */
 .sheep-holding {
-  height: 44px;
+  height: 42px;
   margin: 2px 8px 0;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
@@ -320,23 +336,23 @@
   align-items: center;
 }
 
-/* 卡牌主舞台 (限定高度 235px，绝不挤压底部) */
+/* 卡牌主舞台：自适应分配剩余垂直空间，绝不顶推底栏 */
 .sheep-stage-box {
-  width: 100%;
-  height: 235px;
-  max-height: 235px;
-  position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: visible;
-  flex-shrink: 0;
+  flex: 1 !important;
+  min-height: 0 !important;
+  width: 100% !important;
+  position: relative !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
 }
 
 .sheep-stage {
   width: 320px;
   height: 230px;
   position: relative;
+  max-width: 100%;
 }
 
 /* 紧凑精致卡牌 */
@@ -377,14 +393,18 @@
 
 .sheep-card.active { filter: brightness(1); }
 
-/* 底部操作固定容器 (卡槽 + 道具栏) */
+/* 底部操作固定容器 (卡槽 + 道具栏) - 100% 稳稳钉死在可视区域底部 */
 .sheep-bottom-unit {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 4px 8px 10px;
-  flex-shrink: 0;
-  background: rgba(0, 0, 0, 0.14);
+  margin-top: auto !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  padding: 6px 8px max(10px, env(safe-area-inset-bottom, 10px)) !important;
+  background: rgba(0, 0, 0, 0.22) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-sizing: border-box !important;
+  z-index: 50 !important;
 }
 
 /* 7格卡槽 */
@@ -603,3 +623,27 @@
 .stgc-alert-btns { display: flex; gap: 8px; justify-content: center; }
 .stgc-btn-p { background: #10b981; color: #fff; border: none; padding: 6px 14px; border-radius: 16px; font-weight: bold; cursor: pointer; }
 .stgc-btn-s { background: #f59e0b; color: #fff; border: none; padding: 6px 14px; border-radius: 16px; font-weight: bold; cursor: pointer; }
+
+/* 4. 酒馆原生 #options 菜单项高亮与图文对齐 (图三菜单适配) */
+#options .sheepblock-menu-opt {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 8px 14px !important;
+  color: var(--SmartThemeBodyColor, #e2e8f0) !important;
+  text-decoration: none !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: background 0.15s ease !important;
+}
+
+#options .sheepblock-menu-opt:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+#options .sheepblock-menu-opt i {
+  width: 20px !important;
+  text-align: center !important;
+  color: #a855f7 !important;
+}
