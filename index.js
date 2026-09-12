@@ -1,20 +1,21 @@
 /**
  * Silly Game Plus (SillyTavern-SheepBlock)
- * 适配 SillyTavern 酒馆全端小游戏扩展插件
+ * 适配 SillyTavern 酒馆全端小游戏扩展插件 (终极修复版)
  * 1. 独立主页选择大厅 (Home Hub)
- * 2. 🐑 羊了个羊 (爽玩增强版：道具5次+无限补充+5格暂存区+全屏自适应+进度保存+暂停)
- * 3. 🧱 现代俄罗斯方块 (7-Bag 发牌 + 幽灵投影 + Hold暂存 + 触屏虚拟手柄 + 进度保存 + 暂停)
- * 4. 完美适配酒馆扩展菜单与移动端定位安全
+ * 2. 彻底解决羊了个羊道具栏在手机上被截断问题 (底栏固定单元 + 紧凑金字塔)
+ * 3. 彻底修复悬浮球取消勾选逻辑，删除左上角多余浮条
+ * 4. 完美匹配酒馆原生 #extensionsMenu 上下文菜单项注入
+ * 5. 双游戏支持暂停与断点续玩全量存档
  */
 
 (() => {
   'use strict';
 
   const PLUGIN_ID = 'silly-game-plus';
-  const LAUNCHER_POS_KEY = 'stgc-launcher-pos-v2';
-  const LAUNCHER_HIDDEN_KEY = 'stgc-launcher-hidden-v2';
-  const SHEEP_STORAGE_KEY = 'stgc-sheep-save-v2';
-  const TETRIS_STORAGE_KEY = 'stgc-tetris-save-v2';
+  const LAUNCHER_POS_KEY = 'stgc-launcher-pos-v3';
+  const LAUNCHER_HIDDEN_KEY = 'stgc-launcher-hidden-v3';
+  const SHEEP_STORAGE_KEY = 'stgc-sheep-save-v3';
+  const TETRIS_STORAGE_KEY = 'stgc-tetris-save-v3';
 
   // ================= 1. 程序化音频合成引擎 =================
   class SoundEngine {
@@ -96,7 +97,7 @@
 
   const sound = new SoundEngine();
 
-  // ================= 2. 游戏 1: 羊了个羊增强版引擎 =================
+  // ================= 2. 游戏 1: 羊了个羊 极限紧凑全显引擎 =================
   const SHEEP_TYPES = [
     { type: 'sheep', icon: '🐑', name: '小羊' },
     { type: 'grass', icon: '🌿', name: '青草' },
@@ -130,7 +131,6 @@
       this.initDOM();
       this.bindEvents();
 
-      // 尝试恢复存档，若无存档则启动第 1 关
       if (!this.loadState()) {
         this.startLevel(1);
       }
@@ -159,13 +159,14 @@
             <div class="sheep-holding-slots" id="sheepHoldingSlots"></div>
           </div>
 
-          <!-- 弹性卡牌主舞台 -->
+          <!-- 卡牌主舞台 (限定高度 235px) -->
           <div class="sheep-stage-box">
             <div class="sheep-stage" id="sheepStage"></div>
           </div>
 
-          <!-- 7格卡槽 -->
-          <div class="sheep-dock-wrap">
+          <!-- 底部固定单元：包含卡槽与道具栏，100%必定显示 -->
+          <div class="sheep-bottom-unit">
+            <!-- 7格卡槽 -->
             <div class="sheep-dock">
               <div class="sheep-dock-slots-bg">
                 <div class="sheep-dock-cell"></div>
@@ -178,25 +179,25 @@
               </div>
               <div class="sheep-dock-cards" id="sheepDockCards"></div>
             </div>
-          </div>
 
-          <!-- 底部道具栏 (完全钉在底部，100%全显) -->
-          <div class="sheep-tools">
-            <button class="sheep-tool-btn" id="sheepToolMove">
-              <span class="sheep-tool-icon">📤</span>
-              <span class="sheep-tool-name">移出</span>
-              <span class="sheep-tool-num" id="sheepNumMove">5</span>
-            </button>
-            <button class="sheep-tool-btn" id="sheepToolUndo">
-              <span class="sheep-tool-icon">↩️</span>
-              <span class="sheep-tool-name">撤销</span>
-              <span class="sheep-tool-num" id="sheepNumUndo">5</span>
-            </button>
-            <button class="sheep-tool-btn" id="sheepToolShuffle">
-              <span class="sheep-tool-icon">🔀</span>
-              <span class="sheep-tool-name">洗牌</span>
-              <span class="sheep-tool-num" id="sheepNumShuffle">5</span>
-            </button>
+            <!-- 道具栏 -->
+            <div class="sheep-tools">
+              <button class="sheep-tool-btn" id="sheepToolMove">
+                <span class="sheep-tool-icon">📤</span>
+                <span class="sheep-tool-name">移出</span>
+                <span class="sheep-tool-num" id="sheepNumMove">5</span>
+              </button>
+              <button class="sheep-tool-btn" id="sheepToolUndo">
+                <span class="sheep-tool-icon">↩️</span>
+                <span class="sheep-tool-name">撤销</span>
+                <span class="sheep-tool-num" id="sheepNumUndo">5</span>
+              </button>
+              <button class="sheep-tool-btn" id="sheepToolShuffle">
+                <span class="sheep-tool-icon">🔀</span>
+                <span class="sheep-tool-name">洗牌</span>
+                <span class="sheep-tool-num" id="sheepNumShuffle">5</span>
+              </button>
+            </div>
           </div>
 
           <!-- 暂停遮罩 -->
@@ -286,17 +287,6 @@
         this.modalEl.classList.remove('active');
         this.revive();
       });
-
-      window.addEventListener('resize', () => this.adjustStageScale());
-    }
-
-    adjustStageScale() {
-      const box = this.container.querySelector('.sheep-stage-box');
-      if (!box || !this.stageEl) return;
-      const w = box.clientWidth || 360;
-      const h = box.clientHeight || 340;
-      const scale = Math.min(1, Math.min(w / 360, h / 360));
-      this.stageEl.style.transform = `scale(${Math.max(0.72, scale)})`;
     }
 
     togglePause(force) {
@@ -325,13 +315,13 @@
       }
 
       this.renderStage();
-      this.adjustStageScale();
       this.updateCoveredStatus();
       this.updateRemain();
       this.updateToolsUI();
       this.saveState();
     }
 
+    // 第一关：紧凑排布
     generateLevel1() {
       const types = SHEEP_TYPES.slice(0, 3);
       const cardPool = [];
@@ -342,12 +332,12 @@
       this.shuffle(cardPool);
 
       const positions = [
-        { x: 45, y: 55, z: 0 }, { x: 155, y: 55, z: 0 }, { x: 265, y: 55, z: 0 },
-        { x: 45, y: 155, z: 0 }, { x: 155, y: 155, z: 0 }, { x: 265, y: 155, z: 0 },
-        { x: 45, y: 255, z: 0 }, { x: 155, y: 255, z: 0 }, { x: 265, y: 255, z: 0 },
-        { x: 100, y: 105, z: 1 }, { x: 210, y: 105, z: 1 }, { x: 100, y: 205, z: 1 },
-        { x: 210, y: 205, z: 1 }, { x: 155, y: 155, z: 1 },
-        { x: 130, y: 130, z: 2 }, { x: 180, y: 130, z: 2 }, { x: 130, y: 185, z: 2 }, { x: 180, y: 185, z: 2 },
+        { x: 38, y: 15, z: 0 }, { x: 140, y: 15, z: 0 }, { x: 242, y: 15, z: 0 },
+        { x: 38, y: 80, z: 0 }, { x: 140, y: 80, z: 0 }, { x: 242, y: 80, z: 0 },
+        { x: 38, y: 145, z: 0 }, { x: 140, y: 145, z: 0 }, { x: 242, y: 145, z: 0 },
+        { x: 89, y: 47, z: 1 }, { x: 191, y: 47, z: 1 }, { x: 89, y: 112, z: 1 },
+        { x: 191, y: 112, z: 1 }, { x: 140, y: 80, z: 1 },
+        { x: 115, y: 64, z: 2 }, { x: 165, y: 64, z: 2 }, { x: 115, y: 96, z: 2 }, { x: 165, y: 96, z: 2 },
       ];
 
       this.allCards = cardPool.map((item, idx) => ({
@@ -358,38 +348,45 @@
         x: positions[idx].x,
         y: positions[idx].y,
         z: positions[idx].z,
-        width: 46,
-        height: 50,
+        width: 38,
+        height: 42,
         state: 'stage',
         isCovered: false,
         el: null
       }));
     }
 
+    // 第二关：高度严格控制在 230px 内的金字塔
     generateLevel2() {
       const positions = [];
+      // 第0层：5x5 网格
       for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
-          if (Math.random() > 0.15) positions.push({ x: 62 + c * 48, y: 50 + r * 50, z: 0 });
+          if (Math.random() > 0.15) positions.push({ x: 50 + c * 42, y: 15 + r * 34, z: 0 });
         }
       }
+      // 第1层：4x4
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 4; c++) {
-          if (Math.random() > 0.1) positions.push({ x: 86 + c * 48, y: 75 + r * 50, z: 1 });
+          if (Math.random() > 0.1) positions.push({ x: 71 + c * 42, y: 32 + r * 34, z: 1 });
         }
       }
+      // 第2层：3x3
       for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) positions.push({ x: 110 + c * 48, y: 100 + r * 50, z: 2 });
+        for (let c = 0; c < 3; c++) positions.push({ x: 92 + c * 42, y: 49 + r * 34, z: 2 });
       }
+      // 第3层：2x2
       for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 2; c++) positions.push({ x: 134 + c * 48, y: 125 + r * 50, z: 3 });
+        for (let c = 0; c < 2; c++) positions.push({ x: 113 + c * 42, y: 66 + r * 34, z: 3 });
       }
-      positions.push({ x: 158, y: 150, z: 4 });
+      // 尖顶
+      positions.push({ x: 134, y: 83, z: 4 });
 
-      // 两侧暗牌堆与底部备用
-      for (let i = 0; i < 8; i++) positions.push({ x: 10, y: 65 + i * 5, z: 10 + i });
-      for (let i = 0; i < 8; i++) positions.push({ x: 304, y: 65 + i * 5, z: 10 + i });
-      for (let i = 0; i < 4; i++) positions.push({ x: 70 + i * 58, y: 315, z: 1 });
+      // 左右暗牌堆 (紧凑叠放)
+      for (let i = 0; i < 8; i++) positions.push({ x: 6, y: 25 + i * 4, z: 10 + i });
+      for (let i = 0; i < 8; i++) positions.push({ x: 276, y: 25 + i * 4, z: 10 + i });
+      // 底部备用卡牌 (y: 185, 加上卡牌高42 = 227px，完全在230px内)
+      for (let i = 0; i < 4; i++) positions.push({ x: 55 + i * 54, y: 185, z: 1 });
 
       let total = positions.length;
       const rem = total % 3;
@@ -411,8 +408,8 @@
         x: pos.x,
         y: pos.y,
         z: pos.z,
-        width: 46,
-        height: 50,
+        width: 38,
+        height: 42,
         state: 'stage',
         isCovered: false,
         el: null
@@ -452,7 +449,6 @@
           this.stageEl.appendChild(el);
         }
       });
-      requestAnimationFrame(() => this.adjustStageScale());
     }
 
     updateCoveredStatus() {
@@ -739,7 +735,6 @@
       this.saveState();
     }
 
-    // 进度存档
     saveState() {
       try {
         const data = {
@@ -763,7 +758,6 @@
       } catch (e) {}
     }
 
-    // 进度读取
     loadState() {
       try {
         const raw = localStorage.getItem(SHEEP_STORAGE_KEY);
@@ -778,7 +772,7 @@
 
         const cardMap = {};
         this.allCards = data.cards.map(c => {
-          const item = { ...c, width: 46, height: 50, isCovered: false, el: null };
+          const item = { ...c, width: 38, height: 42, isCovered: false, el: null };
           cardMap[item.id] = item;
           return item;
         });
@@ -792,7 +786,6 @@
         this.updateCoveredStatus();
         this.updateRemain();
         this.updateToolsUI();
-        this.adjustStageScale();
         return true;
       } catch (e) {
         return false;
@@ -814,7 +807,7 @@
     }
   }
 
-  // ================= 3. 游戏 2: 现代俄罗斯方块 (Tetris) 引擎 =================
+  // ================= 3. 游戏 2: 现代俄罗斯方块 =================
   const TETRIS_SHAPES = {
     I: { color: '#06b6d4', matrix: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]] },
     J: { color: '#3b82f6', matrix: [[1,0,0],[1,1,1],[0,0,0]] },
@@ -862,10 +855,9 @@
     initDOM() {
       this.container.innerHTML = `
         <div class="tetris-wrapper">
-          <!-- 顶部子操作栏 -->
-          <div class="sheep-sub-header" style="width: 100%; max-width: 360px; border-radius: 8px; margin-bottom: 4px;">
+          <div class="sheep-sub-header" style="width: 100%; max-width: 320px; border-radius: 6px; margin-bottom: 2px;">
             <button class="sheep-mini-btn" id="tetrisBackBtn" title="返回主页">← 主页</button>
-            <span style="color:#fff; font-size:12px; font-weight:bold;">🧱 俄罗斯方块</span>
+            <span style="color:#fff; font-size:11px; font-weight:bold;">🧱 俄罗斯方块</span>
             <div style="display:flex; gap:6px;">
               <button class="sheep-mini-btn" id="tetrisPauseBtn" title="暂停/继续">⏸</button>
               <button class="sheep-mini-btn" id="tetrisRestartBtn" title="重新开始">🔄</button>
@@ -873,11 +865,10 @@
           </div>
 
           <div class="tetris-layout">
-            <!-- 左侧面板: Hold & Level -->
             <div class="tetris-sidebar">
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Hold</div>
-                <canvas id="tetrisHoldCanvas" class="tetris-preview-canvas" width="48" height="48"></canvas>
+                <canvas id="tetrisHoldCanvas" class="tetris-preview-canvas" width="44" height="44"></canvas>
               </div>
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Level</div>
@@ -889,16 +880,14 @@
               </div>
             </div>
 
-            <!-- 中间主视窗: Canvas (180 x 360) -->
             <div class="tetris-main-box">
               <canvas id="tetrisCanvas" width="180" height="360"></canvas>
             </div>
 
-            <!-- 右侧面板: Next & Score -->
             <div class="tetris-sidebar">
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Next</div>
-                <canvas id="tetrisNextCanvas" class="tetris-preview-canvas" width="48" height="48"></canvas>
+                <canvas id="tetrisNextCanvas" class="tetris-preview-canvas" width="44" height="44"></canvas>
               </div>
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Score</div>
@@ -907,7 +896,6 @@
             </div>
           </div>
 
-          <!-- 手机虚拟手柄控制器 -->
           <div class="tetris-controls">
             <div class="tetris-ctrl-row">
               <button class="tetris-btn hold" id="btnHold">暂存(C)</button>
@@ -921,14 +909,12 @@
             </div>
           </div>
 
-          <!-- 暂停遮罩 -->
           <div class="stgc-pause-mask" id="tetrisPauseMask">
             <div class="stgc-pause-icon">⏸</div>
             <div class="stgc-pause-title">游戏已暂停</div>
             <div class="stgc-pause-hint">点击屏幕任意处继续</div>
           </div>
 
-          <!-- 结算弹窗 -->
           <div class="stgc-alert-overlay" id="tetrisModal">
             <div class="stgc-alert-box">
               <div class="stgc-alert-icon" id="tetrisModalIcon">🧱</div>
@@ -944,17 +930,14 @@
 
       this.canvas = this.container.querySelector('#tetrisCanvas');
       this.ctx = this.canvas.getContext('2d');
-
       this.nextCanvas = this.container.querySelector('#tetrisNextCanvas');
       this.nextCtx = this.nextCanvas.getContext('2d');
-
       this.holdCanvas = this.container.querySelector('#tetrisHoldCanvas');
       this.holdCtx = this.holdCanvas.getContext('2d');
 
       this.scoreEl = this.container.querySelector('#tetrisScore');
       this.linesEl = this.container.querySelector('#tetrisLines');
       this.levelEl = this.container.querySelector('#tetrisLevel');
-
       this.pauseMask = this.container.querySelector('#tetrisPauseMask');
       this.pauseBtn = this.container.querySelector('#tetrisPauseBtn');
 
@@ -968,18 +951,12 @@
       this.keyHandler = (e) => {
         if (this.isGameOver || this.isPaused) return;
         switch (e.code) {
-          case 'ArrowLeft': case 'KeyA':
-            this.move(-1); e.preventDefault(); break;
-          case 'ArrowRight': case 'KeyD':
-            this.move(1); e.preventDefault(); break;
-          case 'ArrowDown': case 'KeyS':
-            this.drop(); e.preventDefault(); break;
-          case 'ArrowUp': case 'KeyW':
-            this.rotate(); e.preventDefault(); break;
-          case 'Space':
-            this.hardDrop(); e.preventDefault(); break;
-          case 'KeyC': case 'ShiftLeft': case 'ShiftRight':
-            this.hold(); e.preventDefault(); break;
+          case 'ArrowLeft': case 'KeyA': this.move(-1); e.preventDefault(); break;
+          case 'ArrowRight': case 'KeyD': this.move(1); e.preventDefault(); break;
+          case 'ArrowDown': case 'KeyS': this.drop(); e.preventDefault(); break;
+          case 'ArrowUp': case 'KeyW': this.rotate(); e.preventDefault(); break;
+          case 'Space': this.hardDrop(); e.preventDefault(); break;
+          case 'KeyC': case 'ShiftLeft': case 'ShiftRight': this.hold(); e.preventDefault(); break;
         }
       };
       window.addEventListener('keydown', this.keyHandler);
@@ -1111,7 +1088,6 @@
       if (this.isGameOver || this.isPaused) return;
       const m = this.currentPiece.matrix;
       const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());
-
       const kicks = [0, -1, 1, -2, 2];
       for (const k of kicks) {
         if (!this.collide(this.currentPiece.x + k, this.currentPiece.y, rotated)) {
@@ -1381,7 +1357,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       if (!piece) return;
       const m = piece.matrix;
-      const size = 10;
+      const size = 9;
       const offsetX = (canvas.width - m[0].length * size) / 2;
       const offsetY = (canvas.height - m.length * size) / 2;
 
@@ -1398,10 +1374,10 @@
     drawHold() { this.drawPreview(this.holdCanvas, this.holdCtx, this.holdPiece); }
   }
 
-  // ================= 4. 全局调度器、主页Hub与酒馆菜单无缝挂载 =================
+  // ================= 4. 全局调度器、主页Hub与酒馆菜单挂载 =================
   class SillyGamePlugin {
     constructor() {
-      this.currentView = 'home'; // 'home' | 'sheep' | 'tetris'
+      this.currentView = 'home';
       this.sheepInstance = null;
       this.tetrisInstance = null;
       this.launcherVisible = true;
@@ -1428,8 +1404,8 @@
       const vp = this.getViewportSize();
       const margin = 8;
       return {
-        x: Math.min(Math.max(x, margin), vp.width - 56 - margin),
-        y: Math.min(Math.max(y, margin), vp.height - 56 - margin),
+        x: Math.min(Math.max(x, margin), vp.width - 54 - margin),
+        y: Math.min(Math.max(y, margin), vp.height - 54 - margin),
       };
     }
 
@@ -1448,8 +1424,7 @@
 
     resetLauncherPosition() {
       const vp = this.getViewportSize();
-      // 默认安全落位在右侧，避开底部输入框
-      this.setLauncherPosition(vp.width - 64, vp.height - 150, true);
+      this.setLauncherPosition(vp.width - 62, vp.height - 150, true);
     }
 
     initLauncher() {
@@ -1465,15 +1440,6 @@
         </svg>
       `;
 
-      // 备用召回浮条
-      const restore = document.createElement('div');
-      restore.id = `${PLUGIN_ID}-restore`;
-      restore.className = `stgc-restore-handle ${this.launcherVisible ? '' : 'show'}`;
-      restore.title = '唤醒 SheepBlock 游戏悬浮球';
-      restore.textContent = '🎮';
-      restore.addEventListener('click', () => this.setLauncherVisible(true));
-
-      // 拖拽逻辑
       let drag = null;
       launcher.addEventListener('pointerdown', (e) => {
         if (e.button !== undefined && e.button !== 0) return;
@@ -1513,9 +1479,8 @@
       launcher.addEventListener('pointerup', endDrag);
       launcher.addEventListener('pointercancel', () => { drag = null; });
 
-      document.body.append(launcher, restore);
+      document.body.append(launcher);
 
-      // 计算初始落位
       const saved = localStorage.getItem(LAUNCHER_POS_KEY);
       if (saved) {
         try {
@@ -1533,9 +1498,10 @@
       this.launcherVisible = visible;
       localStorage.setItem(LAUNCHER_HIDDEN_KEY, visible ? '0' : '1');
       const launcher = document.getElementById(`${PLUGIN_ID}-launcher`);
-      const restore = document.getElementById(`${PLUGIN_ID}-restore`);
-      if (launcher) launcher.classList.toggle('is-hidden', !visible);
-      if (restore) restore.classList.toggle('show', !visible);
+      if (launcher) {
+        launcher.classList.toggle('is-hidden', !visible);
+        launcher.style.display = visible ? 'flex' : 'none';
+      }
 
       const cb = document.getElementById('stgcToggleLauncherCb');
       if (cb) cb.checked = visible;
@@ -1594,7 +1560,7 @@
                   <span class="stgc-card-badge">爽玩版</span>
                 </div>
                 <div class="stgc-card-desc">
-                  经典多层堆叠三消 · 道具初始各5次 · 5格暂存区 · 无限补给杜绝死局
+                  经典多层堆叠消除 · 道具初始各5次 · 5格暂存区 · 无限补给杜绝死局
                 </div>
               </div>
               <div class="stgc-card-arrow">›</div>
@@ -1624,7 +1590,7 @@
 
     launchSheep() {
       this.currentView = 'sheep';
-      document.getElementById('stgcMainHeader').style.display = 'none'; // 使用羊了个羊专属顶部子栏
+      document.getElementById('stgcMainHeader').style.display = 'none';
       this.body.innerHTML = '<div id="sheepRoot" style="height:100%; display:flex; flex-direction:column;"></div>';
       const root = this.body.querySelector('#sheepRoot');
       this.sheepInstance = new SheepEngine(root, () => this.renderHome());
@@ -1632,7 +1598,7 @@
 
     launchTetris() {
       this.currentView = 'tetris';
-      document.getElementById('stgcMainHeader').style.display = 'none'; // 使用俄罗斯方块专属顶部子栏
+      document.getElementById('stgcMainHeader').style.display = 'none';
       this.body.innerHTML = '<div id="tetrisRoot" style="height:100%; display:flex; flex-direction:column;"></div>';
       const root = this.body.querySelector('#tetrisRoot');
       this.tetrisInstance = new TetrisEngine(root, () => this.renderHome());
@@ -1667,14 +1633,21 @@
       });
     }
 
-    // ================= 5. 酒馆原生界面联动 (设置抽屉 + 魔法棒菜单) =================
+    // ================= 5. 酒馆原生界面联动 =================
     startHeartbeatHooks() {
-      // 周期性检查与挂载，抵抗酒馆切角色或动态DOM重建
       setInterval(() => {
         this.injectSettingsDrawer();
         this.injectExtensionsMenuButton();
         this.ensureLauncherAlive();
-      }, 1000);
+      }, 800);
+
+      // 额外对点击按钮进行即时拦截绑定
+      document.addEventListener('click', (e) => {
+        const target = e.target;
+        if (target && (target.closest('#extensionsMenuButton') || target.closest('#options_button') || target.closest('.extensions_menu_button'))) {
+          setTimeout(() => this.injectExtensionsMenuButton(), 50);
+        }
+      }, true);
     }
 
     ensureLauncherAlive() {
@@ -1683,21 +1656,26 @@
       }
     }
 
-    // 注入酒馆设置面板
     injectSettingsDrawer() {
       const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
       if (container && !document.getElementById('st-sheepblock-settings')) {
         const card = document.createElement('div');
         card.id = 'st-sheepblock-settings';
         card.className = 'stgc-settings-card';
+        card.style.margin = '10px 0';
+        card.style.padding = '12px';
+        card.style.background = 'rgba(0, 0, 0, 0.25)';
+        card.style.border = '1px solid rgba(255, 255, 255, 0.12)';
+        card.style.borderRadius = '10px';
+
         card.innerHTML = `
-          <div class="stgc-settings-card-title">🎮 SillyTavern SheepBlock (小游戏中心)</div>
-          <button type="button" class="stgc-settings-open-btn" id="stgcOpenDirectBtn">
+          <div style="font-size:14px; font-weight:700; color:#f8fafc; margin-bottom:8px;">🎮 SillyTavern SheepBlock (小游戏中心)</div>
+          <button type="button" class="menu_button" id="stgcOpenDirectBtn" style="width:100%; padding:10px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">
             🎮 启动游戏中心 (羊了个羊 & 俄罗斯方块)
           </button>
           <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#cbd5e1; cursor:pointer;">
             <input type="checkbox" id="stgcToggleLauncherCb" ${this.launcherVisible ? 'checked' : ''}>
-            <span>在屏幕上显示浮动手柄悬浮球</span>
+            <span>在屏幕右下角显示浮动手柄悬浮球</span>
           </label>
         `;
         container.appendChild(card);
@@ -1712,39 +1690,49 @@
       }
     }
 
-    // 完美注入图片 4 中的酒馆原生扩展菜单 (Extensions Context Menu)
+    // 精准挂载至酒馆 #extensionsMenu 菜单 (图三所示位置)
     injectExtensionsMenuButton() {
-      // 探测酒馆不同版本下的扩展菜单容器
-      const menuContainer = document.getElementById('extensions_menu') || document.querySelector('.extensions_menu');
+      const menuContainer = document.getElementById('extensionsMenu') || 
+                            document.getElementById('extensions_menu') || 
+                            document.querySelector('#extensionsMenu') ||
+                            document.querySelector('.extensions_menu');
+
       if (menuContainer && !document.getElementById('st_sheepblock_menu_entry')) {
         const item = document.createElement('div');
         item.id = 'st_sheepblock_menu_entry';
         item.className = 'list-group-item extension_menu_button';
+        item.setAttribute('role', 'button');
         item.style.cursor = 'pointer';
         item.style.display = 'flex';
         item.style.alignItems = 'center';
-        item.style.gap = '8px';
+        item.style.gap = '10px';
+        item.style.padding = '8px 12px';
+
         item.innerHTML = `
-          <span style="font-size:16px;">🎮</span>
-          <span>SheepBlock 小游戏</span>
+          <span style="font-size:18px; width:22px; text-align:center;">🎮</span>
+          <span style="font-weight:600;">SheepBlock 小游戏</span>
         `;
+
         item.addEventListener('click', (e) => {
           e.stopPropagation();
-          // 关闭当前下拉菜单
+          // 关闭当前酒馆下拉菜单
           if (menuContainer) menuContainer.style.display = 'none';
+          if (window.jQuery) {
+            try { window.jQuery(menuContainer).hide(); } catch (err) {}
+          }
           this.openModal();
         });
+
         menuContainer.appendChild(item);
       }
     }
   }
 
-  // 全局暴露与开箱自启
   window.openSheepBlock = () => window.sillyGamePlus?.openModal();
 
   function init() {
     window.sillyGamePlus = new SillyGamePlugin();
-    console.log('[SillyTavern SheepBlock] 升级版全功能游戏中心已挂载就绪！');
+    console.log('[SillyTavern SheepBlock] 终极版已就绪！');
   }
 
   if (document.readyState === 'loading') {
