@@ -3,11 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Silly Game Plus - 酒馆小游戏中心 (羊了个羊 & 俄罗斯方块)</title>
-  <!-- 引入插件专属样式 -->
+  <title>SillyTavern-SheepBlock - 酒馆小游戏中心 (主页/羊了个羊/俄罗斯方块/暂停/存档)</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    /* 模拟 SillyTavern 酒馆深色背景与测试环境 */
     body {
       margin: 0;
       padding: 0;
@@ -24,7 +22,7 @@
     }
 
     .demo-tavern-container {
-      max-width: 600px;
+      max-width: 520px;
       width: 90%;
       background: #1e293b;
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -42,10 +40,10 @@
     }
 
     .demo-tavern-desc {
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.6;
       color: #94a3b8;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
     }
 
     .demo-btn-open {
@@ -54,35 +52,28 @@
       border: none;
       padding: 12px 28px;
       border-radius: 25px;
-      font-size: 16px;
+      font-size: 15px;
       font-weight: bold;
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
       transition: transform 0.15s;
     }
 
-    .demo-btn-open:hover {
-      transform: scale(1.05);
-    }
-
-    .demo-btn-open:active {
-      transform: scale(0.96);
-    }
+    .demo-btn-open:hover { transform: scale(1.04); }
+    .demo-btn-open:active { transform: scale(0.96); }
 
     .demo-shortcut-tag {
       display: inline-block;
       margin-top: 14px;
-      font-size: 13px;
+      font-size: 12px;
       color: #cbd5e1;
       background: rgba(255, 255, 255, 0.08);
       padding: 4px 12px;
       border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
     }
-
     .demo-shortcut-tag kbd {
       background: #334155;
-      padding: 2px 6px;
+      padding: 2px 5px;
       border-radius: 4px;
       color: #38bdf8;
       font-weight: bold;
@@ -91,24 +82,24 @@
 </head>
 <body>
 
-  <!-- 模拟酒馆测试主界面 -->
   <div class="demo-tavern-container">
-    <div class="demo-tavern-title">🎮 Silly Game Plus 扩展演示</div>
+    <div class="demo-tavern-title">🎮 SheepBlock 独立运行测试器</div>
     <p class="demo-tavern-desc">
-      已成功加载 SillyTavern 风格插件系统！包含：<br>
-      🐑 <b>羊了个羊 (爽玩增强版)</b>：道具各 5 次 + 无限补充 + 5 格暂存区<br>
-      🧱 <b>现代俄罗斯方块 (Tetris)</b>：7-Bag 竞技发牌 + 幽灵落点投影 + 手机触屏虚拟手柄
+      ✨ <b>全新功能升级已生效</b>：<br>
+      1. 🏠 <b>独立主页选择大厅</b>，支持在主页自由挑选游戏，随时按返回键换游戏；<br>
+      2. 🐑 <b>羊了个羊手机端道具栏全显</b>，卡牌舞台弹性自适应缩放；<br>
+      3. ⏸ <b>双游戏全面支持暂停</b>；<br>
+      4. 💾 <b>全量进度自动保存</b>，关掉页面重开不丢牌局！
     </p>
     <button class="demo-btn-open" onclick="window.sillyGamePlus.openModal()">
-      打开小游戏中心
+      打开游戏大厅
     </button>
     <br>
     <div class="demo-shortcut-tag">
-      或者点击右下角悬浮球，或按键盘 <kbd>Alt</kbd> + <kbd>G</kbd>
+      或者点击屏幕右侧悬浮手柄，或按键盘 <kbd>Alt</kbd> + <kbd>G</kbd>
     </div>
   </div>
 
-  <!-- 引入插件核心代码 -->
   <script src="index.js"></script>
 </body>
 </html>

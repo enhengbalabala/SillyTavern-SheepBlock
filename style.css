@@ -1,10 +1,8 @@
-/* Silly Game Plus - SillyTavern 扩展样式表 */
+/* Silly Game Plus - 移动端/桌面端全自适应样式表 */
 
-/* 悬浮启动球 (Launcher) - 采用酒馆最高级别 z-index，防止被任何聊天窗/输入法遮挡 */
+/* 1. 悬浮启动球 (Launcher) */
 .stgc-launcher {
   position: fixed !important;
-  right: 18px !important;
-  bottom: 140px !important; /* 充分避开手机端输入框与底部栏 */
   width: 50px !important;
   height: 50px !important;
   border-radius: 50% !important;
@@ -14,7 +12,7 @@
   align-items: center !important;
   justify-content: center !important;
   cursor: grab !important;
-  z-index: 2147483000 !important; /* 最高优先级层级 */
+  z-index: 2147483000 !important;
   user-select: none !important;
   -webkit-user-select: none !important;
   touch-action: none !important;
@@ -32,6 +30,12 @@
   transform: scale(0.94) !important;
 }
 
+.stgc-launcher.is-hidden {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .stgc-launcher-icon {
   width: 26px !important;
   height: 26px !important;
@@ -39,7 +43,34 @@
   pointer-events: none !important;
 }
 
-/* 游戏中心全局遮罩容器 */
+/* 屏幕左侧备用唤醒小浮条 (Restore Handle) */
+.stgc-restore-handle {
+  position: fixed !important;
+  left: 0 !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 22px !important;
+  height: 52px !important;
+  background: rgba(99, 102, 241, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  border-left: none !important;
+  border-radius: 0 8px 8px 0 !important;
+  display: none !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: bold !important;
+  cursor: pointer !important;
+  z-index: 2147483000 !important;
+  box-shadow: 2px 2px 10px rgba(0,0,0,0.3) !important;
+}
+
+.stgc-restore-handle.show {
+  display: flex !important;
+}
+
+/* 2. 游戏中心全局遮罩容器 */
 .stgc-modal-mask {
   position: fixed !important;
   top: 0 !important;
@@ -52,7 +83,7 @@
   display: none;
   justify-content: center !important;
   align-items: center !important;
-  z-index: 2147483001 !important; /* 弹窗在悬浮球之上 */
+  z-index: 2147483001 !important;
   opacity: 0;
   transition: opacity 0.2s ease-out !important;
 }
@@ -62,31 +93,23 @@
   opacity: 1 !important;
 }
 
-/* 游戏中心主窗口 (SillyTavern 质感面板) */
+/* 3. 游戏中心主窗口 */
 .stgc-window {
   width: 95vw;
-  max-width: 460px;
-  height: 92vh;
-  max-height: 840px;
+  max-width: 440px;
+  height: 94vh;
+  max-height: 860px;
   background: #1e222d;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 18px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
   color: #e2e8f0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
-  animation: stgcWindowPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.stgc-window.fullscreen {
-  width: 100vw !important;
-  max-width: 100vw !important;
-  height: 100vh !important;
-  max-height: 100vh !important;
-  border-radius: 0 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+  animation: stgcWindowPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @keyframes stgcWindowPop {
@@ -94,96 +117,61 @@
   to { transform: scale(1); opacity: 1; }
 }
 
-/* 窗口头部导航栏 */
+/* 窗口通用头部 */
 .stgc-header {
-  height: 52px;
-  background: rgba(15, 17, 23, 0.9);
+  height: 48px;
+  background: rgba(15, 17, 23, 0.92);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 10px;
   user-select: none;
   flex-shrink: 0;
 }
 
-.stgc-header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 14px;
-  color: #f8fafc;
-}
-
-/* 游戏切换 Tabs */
-.stgc-tabs {
-  display: flex;
-  background: rgba(0, 0, 0, 0.35);
-  border-radius: 20px;
-  padding: 3px;
-  gap: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.stgc-tab-btn {
-  background: transparent;
-  border: none;
-  outline: none;
-  color: #94a3b8;
+.stgc-header-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
   font-size: 12px;
   font-weight: 600;
-  padding: 5px 10px;
-  border-radius: 16px;
-  cursor: pointer;
-  transition: all 0.15s ease;
   display: flex;
   align-items: center;
   gap: 4px;
+  transition: all 0.15s;
 }
 
-.stgc-tab-btn:hover {
-  color: #f1f5f9;
+.stgc-header-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
 }
 
-.stgc-tab-btn.active {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  color: #ffffff;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+.stgc-header-btn.close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
 }
 
-.stgc-header-right {
+.stgc-header-btn.close:hover {
+  background: #ef4444;
+  color: #fff;
+}
+
+.stgc-header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
   display: flex;
   align-items: center;
   gap: 6px;
 }
 
-.stgc-ctrl-btn {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #cbd5e1;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.15s;
-}
-
-.stgc-ctrl-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
-}
-
-.stgc-ctrl-btn.close:hover {
-  background: #ef4444;
-  color: #fff;
-}
-
-/* 游戏内容承载视口 */
+/* 视口容器 */
 .stgc-body {
   flex: 1;
   position: relative;
@@ -192,114 +180,170 @@
   flex-direction: column;
 }
 
-.stgc-game-view {
-  width: 100%;
-  height: 100%;
-  display: none;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-}
-
-.stgc-game-view.active {
+/* ================== 主页 (Home Hub) 样式 ================== */
+.stgc-home-view {
+  flex: 1;
   display: flex;
+  flex-direction: column;
+  padding: 16px;
+  overflow-y: auto;
+  background: #131722;
 }
 
-/* ================== 酒馆扩展面板中的设置卡片样式 ================== */
-.stgc-settings-card {
-  margin: 10px 0;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
+.stgc-home-intro {
+  text-align: center;
+  margin-bottom: 18px;
+  margin-top: 6px;
 }
 
-.stgc-settings-card-title {
-  font-size: 14px;
-  font-weight: 700;
+.stgc-home-title {
+  font-size: 20px;
+  font-weight: 800;
   color: #f8fafc;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
+}
+
+.stgc-home-desc {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.stgc-game-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stgc-game-card {
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 16px;
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
 }
 
-.stgc-settings-open-btn {
-  width: 100%;
-  padding: 10px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: bold;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+.stgc-game-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(99, 102, 241, 0.5);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.25);
+}
+
+.stgc-game-card:active {
+  transform: translateY(1px);
+}
+
+.stgc-card-icon-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  transition: transform 0.1s;
+  font-size: 30px;
+  flex-shrink: 0;
 }
 
-.stgc-settings-open-btn:active {
-  transform: translateY(2px);
+.stgc-card-icon-box.sheep {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
-/* ================== 游戏 1: 羊了个羊 专属样式 ================== */
+.stgc-card-icon-box.tetris {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+}
+
+.stgc-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.stgc-card-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.stgc-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+}
+
+.stgc-card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
+}
+
+.stgc-card-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.stgc-card-arrow {
+  color: #64748b;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+/* ================== 游戏 1: 羊了个羊 移动端紧凑全显布局 ================== */
 .sheep-wrapper {
   flex: 1;
-  background: #78bd55 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><circle cx="15" cy="15" r="2" fill="%23ffffff" opacity="0.08"/><circle cx="45" cy="40" r="3" fill="%23ffffff" opacity="0.08"/><path d="M25 45 Q30 35 35 45" stroke="%23ffffff" stroke-width="1.5" fill="none" opacity="0.1"/></svg>') repeat;
+  background: #74b452 url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60"><circle cx="15" cy="15" r="2" fill="%23ffffff" opacity="0.08"/><circle cx="45" cy="40" r="3" fill="%23ffffff" opacity="0.08"/><path d="M25 45 Q30 35 35 45" stroke="%23ffffff" stroke-width="1.5" fill="none" opacity="0.1"/></svg>') repeat;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   position: relative;
   user-select: none;
   overflow: hidden;
+  height: 100%;
 }
 
 .sheep-sub-header {
-  height: 42px;
+  height: 38px;
   padding: 0 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.2);
   flex-shrink: 0;
 }
 
 .sheep-badge {
   background: #ff6b6b;
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: bold;
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 2px 7px;
+  border-radius: 10px;
   border: 1px solid #fff;
 }
 
 .sheep-remain {
   color: #fff;
   font-size: 12px;
-  font-weight: 500;
 }
 
 .sheep-remain b {
   color: #fef08a;
-  font-size: 14px;
-}
-
-.sheep-actions-top {
-  display: flex;
-  gap: 6px;
+  font-size: 13px;
 }
 
 .sheep-mini-btn {
   background: #ffffff;
   border: none;
   outline: none;
-  font-size: 12px;
-  padding: 4px 8px;
+  font-size: 11px;
+  padding: 3px 7px;
   border-radius: 6px;
   cursor: pointer;
   box-shadow: 0 2px 0 #cbd5e1;
@@ -309,8 +353,7 @@
 }
 
 .sheep-mini-btn:active {
-  transform: translateY(2px);
-  box-shadow: none;
+  transform: translateY(1px);
 }
 
 .sheep-mini-btn.supply {
@@ -319,11 +362,11 @@
   box-shadow: 0 2px 0 #b45309;
 }
 
-/* 5格大容量暂存区 */
+/* 5格暂存区 (压低高度) */
 .sheep-holding {
-  height: 56px;
-  margin: 4px 10px 0;
-  background: rgba(0, 0, 0, 0.2);
+  height: 48px;
+  margin: 3px 8px 0;
+  background: rgba(0, 0, 0, 0.22);
   border-radius: 8px;
   border: 2px dashed rgba(255, 255, 255, 0.4);
   display: flex;
@@ -335,28 +378,28 @@
 }
 
 .sheep-holding-label {
-  font-size: 10px;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 2px;
-  pointer-events: none;
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 1px;
 }
 
 .sheep-holding-slots {
   display: flex;
-  gap: 5px;
-  min-height: 38px;
+  gap: 4px;
+  min-height: 32px;
   align-items: center;
 }
 
-/* 羊了个羊卡牌主舞台 */
+/* 弹性卡牌舞台容器 (自动弹性计算高度，绝不溢出) */
 .sheep-stage-box {
   flex: 1;
+  min-height: 0;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
-  padding: 4px;
+  padding: 2px;
 }
 
 .sheep-stage {
@@ -368,26 +411,25 @@
 
 /* 卡牌 */
 .sheep-card {
-  width: 48px;
-  height: 52px;
+  width: 46px;
+  height: 50px;
   position: absolute;
-  border-radius: 8px;
+  border-radius: 7px;
   background: #ffffff;
   border: 2px solid #e2d9c8;
-  box-shadow: 0 4px 0 #b8a892, 0 4px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 3px 0 #b8a892, 0 3px 6px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   cursor: pointer;
   box-sizing: border-box;
-  transition: filter 0.18s, transform 0.12s;
+  transition: filter 0.18s, transform 0.1s;
 }
 
 .sheep-card .sheep-card-icon {
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1;
-  pointer-events: none;
 }
 
 .sheep-card .sheep-card-name {
@@ -395,7 +437,6 @@
   font-weight: 700;
   color: #78350f;
   margin-top: 1px;
-  pointer-events: none;
 }
 
 .sheep-card.covered {
@@ -406,43 +447,28 @@
 
 .sheep-card.active {
   filter: brightness(1);
-  cursor: pointer;
-}
-
-.sheep-card.active:hover {
-  transform: translateY(-2px);
-}
-
-.sheep-card.active:active {
-  transform: translateY(1px);
-}
-
-@keyframes sheepCardPop {
-  0% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.28) rotate(10deg); filter: brightness(1.6); opacity: 0.8; }
-  100% { transform: scale(0.05) rotate(-20deg); opacity: 0; }
 }
 
 .sheep-card.eliminating {
-  animation: sheepCardPop 0.24s ease-out forwards;
+  animation: sheepCardPop 0.22s ease-out forwards;
   pointer-events: none;
 }
 
-/* 卡槽 */
+/* 7格卡槽 */
 .sheep-dock-wrap {
-  padding: 4px 8px;
+  padding: 3px 8px;
   display: flex;
   justify-content: center;
   flex-shrink: 0;
 }
 
 .sheep-dock {
-  width: 366px;
-  height: 56px;
+  width: 350px;
+  height: 52px;
   background: #854d0e;
   border: 3px solid #58310c;
-  border-radius: 10px;
-  box-shadow: inset 0 3px 6px rgba(0,0,0,0.5), 0 3px 8px rgba(0,0,0,0.3);
+  border-radius: 8px;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
   position: relative;
   display: flex;
   align-items: center;
@@ -458,14 +484,13 @@
   display: flex;
   justify-content: space-around;
   align-items: center;
-  pointer-events: none;
 }
 
 .sheep-dock-cell {
-  width: 48px;
-  height: 50px;
+  width: 44px;
+  height: 46px;
   background: rgba(0, 0, 0, 0.22);
-  border-radius: 6px;
+  border-radius: 5px;
   border: 1px dashed rgba(255, 255, 255, 0.15);
 }
 
@@ -488,12 +513,12 @@
   flex-shrink: 0;
 }
 
-/* 羊了个羊道具栏 */
+/* 道具栏 (完全钉死在底部，100%全显) */
 .sheep-tools {
   display: flex;
   justify-content: space-around;
-  padding: 6px 10px 12px;
-  background: rgba(0, 0, 0, 0.12);
+  padding: 4px 10px 10px;
+  background: rgba(0, 0, 0, 0.16);
   flex-shrink: 0;
 }
 
@@ -504,12 +529,11 @@
   background: #ffffff;
   border: 2px solid #ecd8c2;
   border-radius: 8px;
-  padding: 4px 10px;
+  padding: 4px 12px;
   cursor: pointer;
   position: relative;
-  box-shadow: 0 3px 0 #bfa992, 0 3px 6px rgba(0,0,0,0.15);
+  box-shadow: 0 3px 0 #bfa992;
   min-width: 64px;
-  transition: transform 0.1s;
 }
 
 .sheep-tool-btn:active:not(:disabled) {
@@ -532,7 +556,6 @@
   font-size: 10px;
   font-weight: 700;
   color: #475569;
-  margin-top: 2px;
 }
 
 .sheep-tool-num {
@@ -552,7 +575,51 @@
   border: 1.5px solid #fff;
 }
 
-/* ================== 游戏 2: 俄罗斯方块 专属样式 ================== */
+/* 游戏内通用暂停遮罩 */
+.stgc-pause-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(6px);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  color: #fff;
+  cursor: pointer;
+}
+
+.stgc-pause-mask.active {
+  display: flex;
+}
+
+.stgc-pause-icon {
+  font-size: 40px;
+  margin-bottom: 8px;
+  animation: stgcPulse 1.2s infinite;
+}
+
+@keyframes stgcPulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+.stgc-pause-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.stgc-pause-hint {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ================== 游戏 2: 俄罗斯方块 紧凑布局 ================== */
 .tetris-wrapper {
   flex: 1;
   background: #0f172a;
@@ -563,6 +630,7 @@
   user-select: none;
   padding: 4px;
   overflow-y: auto;
+  height: 100%;
 }
 
 .tetris-layout {
@@ -573,12 +641,11 @@
   margin-top: 2px;
 }
 
-/* 侧边信息卡片 */
 .tetris-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  width: 68px;
+  gap: 6px;
+  width: 66px;
 }
 
 .tetris-panel-box {
@@ -587,14 +654,12 @@
   border-radius: 8px;
   padding: 4px 2px;
   text-align: center;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.3);
 }
 
 .tetris-panel-title {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #94a3b8;
-  margin-bottom: 2px;
   text-transform: uppercase;
 }
 
@@ -605,36 +670,32 @@
 }
 
 .tetris-preview-canvas {
-  width: 50px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   background: #0b0f19;
   border-radius: 4px;
   display: block;
   margin: 0 auto;
 }
 
-/* 俄罗斯方块主舞台 Canvas */
 .tetris-main-box {
   position: relative;
   background: #090d16;
   border: 2px solid #334155;
   border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
 }
 
 #tetrisCanvas {
   display: block;
-  border-radius: 6px;
 }
 
-/* 俄罗斯方块虚拟手机手柄控制器 */
 .tetris-controls {
   width: 100%;
   max-width: 340px;
-  margin-top: 8px;
+  margin-top: 6px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   padding: 2px 4px;
 }
 
@@ -647,45 +708,31 @@
 
 .tetris-btn {
   flex: 1;
-  height: 42px;
+  height: 40px;
   background: #334155;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 8px;
   color: #f1f5f9;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 2px 0 #1e293b;
-  user-select: none;
   touch-action: manipulation;
 }
 
 .tetris-btn:active {
   transform: translateY(2px);
   box-shadow: none;
-  background: #475569;
 }
 
-.tetris-btn.drop {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 2px 0 #991b1b;
-}
+.tetris-btn.drop { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+.tetris-btn.rotate { background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); }
+.tetris-btn.hold { background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); font-size: 12px; }
 
-.tetris-btn.rotate {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  box-shadow: 0 2px 0 #3730a3;
-}
-
-.tetris-btn.hold {
-  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-  box-shadow: 0 2px 0 #0369a1;
-  font-size: 12px;
-}
-
-/* 结算弹窗组件 */
+/* 结算弹窗 */
 .stgc-alert-overlay {
   position: absolute;
   top: 0;
@@ -697,17 +744,11 @@
   display: none;
   justify-content: center;
   align-items: center;
-  z-index: 500;
+  z-index: 1500;
 }
 
 .stgc-alert-overlay.active {
   display: flex;
-  animation: stgcFade 0.2s ease-out;
-}
-
-@keyframes stgcFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .stgc-alert-box {
@@ -716,59 +757,38 @@
   border-radius: 16px;
   width: 82%;
   max-width: 300px;
-  padding: 18px 14px;
+  padding: 16px 12px;
   text-align: center;
   box-shadow: 0 16px 36px rgba(0,0,0,0.5);
   color: #f8fafc;
 }
 
-.stgc-alert-icon {
-  font-size: 44px;
-  margin-bottom: 4px;
-}
-
-.stgc-alert-title {
-  font-size: 17px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.stgc-alert-desc {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-bottom: 14px;
-  line-height: 1.4;
-}
-
-.stgc-alert-btns {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
+.stgc-alert-icon { font-size: 40px; margin-bottom: 4px; }
+.stgc-alert-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+.stgc-alert-desc { font-size: 12px; color: #94a3b8; margin-bottom: 12px; }
+.stgc-alert-btns { display: flex; gap: 8px; justify-content: center; }
 
 .stgc-btn-p {
   background: #10b981;
   color: #fff;
   border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 7px 16px;
+  border-radius: 18px;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 2px 0 #059669;
 }
 
 .stgc-btn-s {
   background: #f59e0b;
   color: #fff;
   border: none;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 7px 16px;
+  border-radius: 18px;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 2px 0 #d97706;
 }
 
-/* 移动端/手机屏幕自适应专项适配 */
+/* 手机端全屏极致适配 */
 @media (max-width: 600px) {
   .stgc-window {
     width: 100vw !important;
@@ -777,14 +797,5 @@
     max-height: 100% !important;
     border-radius: 0 !important;
     border: none !important;
-  }
-  .stgc-launcher {
-    width: 46px !important;
-    height: 46px !important;
-    bottom: 130px !important;
-    right: 14px !important;
-  }
-  .sheep-stage {
-    transform: scale(0.92);
   }
 }

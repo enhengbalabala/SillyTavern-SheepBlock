@@ -1,18 +1,22 @@
 /**
- * Silly Game Plus - SillyTavern 专属小游戏扩展插件 (手机/PC全端深度适配版)
- * 包含：
- * 1. 🐑 羊了个羊 (爽玩增强版：道具5次+无限补充+5格暂存区)
- * 2. 🧱 现代俄罗斯方块 (7-Bag 发牌 + 幽灵投影 + Hold暂存 + 触屏虚拟手柄)
+ * Silly Game Plus (SillyTavern-SheepBlock)
+ * 适配 SillyTavern 酒馆全端小游戏扩展插件
+ * 1. 独立主页选择大厅 (Home Hub)
+ * 2. 🐑 羊了个羊 (爽玩增强版：道具5次+无限补充+5格暂存区+全屏自适应+进度保存+暂停)
+ * 3. 🧱 现代俄罗斯方块 (7-Bag 发牌 + 幽灵投影 + Hold暂存 + 触屏虚拟手柄 + 进度保存 + 暂停)
+ * 4. 完美适配酒馆扩展菜单与移动端定位安全
  */
 
 (() => {
   'use strict';
 
   const PLUGIN_ID = 'silly-game-plus';
-  const LAUNCHER_POS_KEY = 'st-game-plus-launcher-pos';
-  const LAUNCHER_ENABLED_KEY = 'st-game-plus-launcher-enabled';
+  const LAUNCHER_POS_KEY = 'stgc-launcher-pos-v2';
+  const LAUNCHER_HIDDEN_KEY = 'stgc-launcher-hidden-v2';
+  const SHEEP_STORAGE_KEY = 'stgc-sheep-save-v2';
+  const TETRIS_STORAGE_KEY = 'stgc-tetris-save-v2';
 
-  // ================= 1. 程序化音频合成引擎 (零外部文件) =================
+  // ================= 1. 程序化音频合成引擎 =================
   class SoundEngine {
     constructor() {
       this.ctx = null;
@@ -109,8 +113,9 @@
   ];
 
   class SheepEngine {
-    constructor(container) {
+    constructor(container, onBackHome) {
       this.container = container;
+      this.onBackHome = onBackHome;
       this.currentLevel = 1;
       this.allCards = [];
       this.dockList = [];
@@ -118,24 +123,31 @@
       this.historyStack = [];
       this.isAnimating = false;
       this.hasRevived = false;
+      this.isPaused = false;
 
-      // 爽玩扩容道具：初始各 5 次
       this.toolsCount = { moveOut: 5, undo: 5, shuffle: 5 };
 
       this.initDOM();
       this.bindEvents();
-      this.startLevel(1);
+
+      // 尝试恢复存档，若无存档则启动第 1 关
+      if (!this.loadState()) {
+        this.startLevel(1);
+      }
     }
 
     initDOM() {
       this.container.innerHTML = `
         <div class="sheep-wrapper">
+          <!-- 顶部子操作栏 -->
           <div class="sheep-sub-header">
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <button class="sheep-mini-btn" id="sheepBackBtn" title="返回主页">← 主页</button>
               <span class="sheep-badge" id="sheepLevelBadge">第 1 关</span>
-              <span class="sheep-remain">剩余: <b id="sheepRemain">0</b></span>
+              <span class="sheep-remain">余: <b id="sheepRemain">0</b></span>
             </div>
             <div class="sheep-actions-top">
+              <button class="sheep-mini-btn" id="sheepPauseBtn" title="暂停/继续">⏸</button>
               <button class="sheep-mini-btn supply" id="sheepSupplyBtn" title="补充全部道具+3次">⚡ 补给(+3)</button>
               <button class="sheep-mini-btn" id="sheepRestartBtn" title="重新开始本关">🔄</button>
             </div>
@@ -147,7 +159,7 @@
             <div class="sheep-holding-slots" id="sheepHoldingSlots"></div>
           </div>
 
-          <!-- 卡牌主舞台 -->
+          <!-- 弹性卡牌主舞台 -->
           <div class="sheep-stage-box">
             <div class="sheep-stage" id="sheepStage"></div>
           </div>
@@ -168,7 +180,7 @@
             </div>
           </div>
 
-          <!-- 道具栏 -->
+          <!-- 底部道具栏 (完全钉在底部，100%全显) -->
           <div class="sheep-tools">
             <button class="sheep-tool-btn" id="sheepToolMove">
               <span class="sheep-tool-icon">📤</span>
@@ -185,6 +197,13 @@
               <span class="sheep-tool-name">洗牌</span>
               <span class="sheep-tool-num" id="sheepNumShuffle">5</span>
             </button>
+          </div>
+
+          <!-- 暂停遮罩 -->
+          <div class="stgc-pause-mask" id="sheepPauseMask">
+            <div class="stgc-pause-icon">⏸</div>
+            <div class="stgc-pause-title">游戏已暂停</div>
+            <div class="stgc-pause-hint">点击屏幕任意处继续</div>
           </div>
 
           <!-- 结算弹窗 -->
@@ -207,6 +226,8 @@
       this.holdingSlots = this.container.querySelector('#sheepHoldingSlots');
       this.remainEl = this.container.querySelector('#sheepRemain');
       this.levelBadge = this.container.querySelector('#sheepLevelBadge');
+      this.pauseMask = this.container.querySelector('#sheepPauseMask');
+      this.pauseBtn = this.container.querySelector('#sheepPauseBtn');
 
       this.toolMoveBtn = this.container.querySelector('#sheepToolMove');
       this.toolUndoBtn = this.container.querySelector('#sheepToolUndo');
@@ -224,7 +245,13 @@
     }
 
     bindEvents() {
+      this.container.querySelector('#sheepBackBtn').addEventListener('click', () => {
+        this.saveState();
+        if (this.onBackHome) this.onBackHome();
+      });
+
       this.container.querySelector('#sheepRestartBtn').addEventListener('click', () => {
+        this.clearState();
         this.startLevel(this.currentLevel);
       });
 
@@ -234,7 +261,11 @@
         this.toolsCount.shuffle += 3;
         sound.playTool();
         this.updateToolsUI();
+        this.saveState();
       });
+
+      this.pauseBtn.addEventListener('click', () => this.togglePause());
+      this.pauseMask.addEventListener('click', () => this.togglePause(false));
 
       this.toolMoveBtn.addEventListener('click', () => this.useToolMoveOut());
       this.toolUndoBtn.addEventListener('click', () => this.useToolUndo());
@@ -243,8 +274,10 @@
       this.modalOkBtn.addEventListener('click', () => {
         this.modalEl.classList.remove('active');
         if (this.modalOkBtn.dataset.action === 'next') {
+          this.clearState();
           this.startLevel(2);
         } else {
+          this.clearState();
           this.startLevel(this.currentLevel);
         }
       });
@@ -253,6 +286,23 @@
         this.modalEl.classList.remove('active');
         this.revive();
       });
+
+      window.addEventListener('resize', () => this.adjustStageScale());
+    }
+
+    adjustStageScale() {
+      const box = this.container.querySelector('.sheep-stage-box');
+      if (!box || !this.stageEl) return;
+      const w = box.clientWidth || 360;
+      const h = box.clientHeight || 340;
+      const scale = Math.min(1, Math.min(w / 360, h / 360));
+      this.stageEl.style.transform = `scale(${Math.max(0.72, scale)})`;
+    }
+
+    togglePause(force) {
+      this.isPaused = force !== undefined ? force : !this.isPaused;
+      this.pauseMask.classList.toggle('active', this.isPaused);
+      this.pauseBtn.textContent = this.isPaused ? '▶' : '⏸';
     }
 
     startLevel(lvl) {
@@ -275,9 +325,11 @@
       }
 
       this.renderStage();
+      this.adjustStageScale();
       this.updateCoveredStatus();
       this.updateRemain();
       this.updateToolsUI();
+      this.saveState();
     }
 
     generateLevel1() {
@@ -290,12 +342,12 @@
       this.shuffle(cardPool);
 
       const positions = [
-        { x: 45, y: 65, z: 0 }, { x: 155, y: 65, z: 0 }, { x: 265, y: 65, z: 0 },
-        { x: 45, y: 170, z: 0 }, { x: 155, y: 170, z: 0 }, { x: 265, y: 170, z: 0 },
-        { x: 45, y: 275, z: 0 }, { x: 155, y: 275, z: 0 }, { x: 265, y: 275, z: 0 },
-        { x: 100, y: 115, z: 1 }, { x: 210, y: 115, z: 1 }, { x: 100, y: 225, z: 1 },
-        { x: 210, y: 225, z: 1 }, { x: 155, y: 170, z: 1 },
-        { x: 130, y: 140, z: 2 }, { x: 180, y: 140, z: 2 }, { x: 130, y: 200, z: 2 }, { x: 180, y: 200, z: 2 },
+        { x: 45, y: 55, z: 0 }, { x: 155, y: 55, z: 0 }, { x: 265, y: 55, z: 0 },
+        { x: 45, y: 155, z: 0 }, { x: 155, y: 155, z: 0 }, { x: 265, y: 155, z: 0 },
+        { x: 45, y: 255, z: 0 }, { x: 155, y: 255, z: 0 }, { x: 265, y: 255, z: 0 },
+        { x: 100, y: 105, z: 1 }, { x: 210, y: 105, z: 1 }, { x: 100, y: 205, z: 1 },
+        { x: 210, y: 205, z: 1 }, { x: 155, y: 155, z: 1 },
+        { x: 130, y: 130, z: 2 }, { x: 180, y: 130, z: 2 }, { x: 130, y: 185, z: 2 }, { x: 180, y: 185, z: 2 },
       ];
 
       this.allCards = cardPool.map((item, idx) => ({
@@ -306,8 +358,8 @@
         x: positions[idx].x,
         y: positions[idx].y,
         z: positions[idx].z,
-        width: 48,
-        height: 52,
+        width: 46,
+        height: 50,
         state: 'stage',
         isCovered: false,
         el: null
@@ -318,26 +370,26 @@
       const positions = [];
       for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
-          if (Math.random() > 0.15) positions.push({ x: 62 + c * 48, y: 55 + r * 54, z: 0 });
+          if (Math.random() > 0.15) positions.push({ x: 62 + c * 48, y: 50 + r * 50, z: 0 });
         }
       }
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 4; c++) {
-          if (Math.random() > 0.1) positions.push({ x: 86 + c * 48, y: 82 + r * 54, z: 1 });
+          if (Math.random() > 0.1) positions.push({ x: 86 + c * 48, y: 75 + r * 50, z: 1 });
         }
       }
       for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) positions.push({ x: 110 + c * 48, y: 109 + r * 54, z: 2 });
+        for (let c = 0; c < 3; c++) positions.push({ x: 110 + c * 48, y: 100 + r * 50, z: 2 });
       }
       for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 2; c++) positions.push({ x: 134 + c * 48, y: 136 + r * 54, z: 3 });
+        for (let c = 0; c < 2; c++) positions.push({ x: 134 + c * 48, y: 125 + r * 50, z: 3 });
       }
-      positions.push({ x: 158, y: 160, z: 4 });
+      positions.push({ x: 158, y: 150, z: 4 });
 
-      // 两翼暗牌堆与底部备用
-      for (let i = 0; i < 8; i++) positions.push({ x: 10, y: 75 + i * 5, z: 10 + i });
-      for (let i = 0; i < 8; i++) positions.push({ x: 302, y: 75 + i * 5, z: 10 + i });
-      for (let i = 0; i < 4; i++) positions.push({ x: 70 + i * 58, y: 345, z: 1 });
+      // 两侧暗牌堆与底部备用
+      for (let i = 0; i < 8; i++) positions.push({ x: 10, y: 65 + i * 5, z: 10 + i });
+      for (let i = 0; i < 8; i++) positions.push({ x: 304, y: 65 + i * 5, z: 10 + i });
+      for (let i = 0; i < 4; i++) positions.push({ x: 70 + i * 58, y: 315, z: 1 });
 
       let total = positions.length;
       const rem = total % 3;
@@ -359,8 +411,8 @@
         x: pos.x,
         y: pos.y,
         z: pos.z,
-        width: 48,
-        height: 52,
+        width: 46,
+        height: 50,
         state: 'stage',
         isCovered: false,
         el: null
@@ -391,6 +443,7 @@
           `;
           el.addEventListener('click', (e) => {
             e.stopPropagation();
+            if (this.isPaused) return;
             if (card.state === 'stage' || card.state === 'holding') {
               this.handleCardClick(card);
             }
@@ -399,6 +452,7 @@
           this.stageEl.appendChild(el);
         }
       });
+      requestAnimationFrame(() => this.adjustStageScale());
     }
 
     updateCoveredStatus() {
@@ -462,7 +516,7 @@
     }
 
     handleCardClick(card) {
-      if (this.isAnimating) return;
+      if (this.isAnimating || this.isPaused) return;
       if (card.state === 'stage' && card.isCovered) return;
       if (this.dockList.length >= 7) return;
 
@@ -495,6 +549,7 @@
       setTimeout(() => {
         this.checkMatches();
         this.updateToolsUI();
+        this.saveState();
       }, 160);
     }
 
@@ -548,6 +603,7 @@
           });
           this.renderDock();
           this.updateRemain();
+          this.saveState();
           this.checkWin();
         }, 220);
       } else {
@@ -560,6 +616,7 @@
     checkWin() {
       if (this.allCards.filter(c => c.state !== 'eliminated').length === 0) {
         sound.playWin();
+        this.clearState();
         setTimeout(() => {
           this.showAlert({
             icon: '👑',
@@ -600,6 +657,7 @@
       this.renderDock();
       this.renderHolding();
       this.updateToolsUI();
+      this.saveState();
     }
 
     useToolUndo() {
@@ -640,6 +698,7 @@
       this.updateCoveredStatus();
       this.updateRemain();
       this.updateToolsUI();
+      this.saveState();
     }
 
     useToolShuffle() {
@@ -663,6 +722,7 @@
         }
       });
       this.updateToolsUI();
+      this.saveState();
     }
 
     revive() {
@@ -676,6 +736,71 @@
       this.renderDock();
       this.renderHolding();
       this.updateToolsUI();
+      this.saveState();
+    }
+
+    // 进度存档
+    saveState() {
+      try {
+        const data = {
+          currentLevel: this.currentLevel,
+          toolsCount: this.toolsCount,
+          hasRevived: this.hasRevived,
+          cards: this.allCards.map(c => ({
+            id: c.id,
+            type: c.type,
+            icon: c.icon,
+            name: c.name,
+            x: c.x,
+            y: c.y,
+            z: c.z,
+            state: c.state
+          })),
+          dockIds: this.dockList.map(c => c.id),
+          holdingIds: this.holdingList.map(c => c.id)
+        };
+        localStorage.setItem(SHEEP_STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {}
+    }
+
+    // 进度读取
+    loadState() {
+      try {
+        const raw = localStorage.getItem(SHEEP_STORAGE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.cards) || data.cards.length === 0) return false;
+
+        this.currentLevel = data.currentLevel || 1;
+        this.toolsCount = data.toolsCount || { moveOut: 5, undo: 5, shuffle: 5 };
+        this.hasRevived = !!data.hasRevived;
+        this.levelBadge.textContent = `第 ${this.currentLevel} 关`;
+
+        const cardMap = {};
+        this.allCards = data.cards.map(c => {
+          const item = { ...c, width: 46, height: 50, isCovered: false, el: null };
+          cardMap[item.id] = item;
+          return item;
+        });
+
+        this.dockList = (data.dockIds || []).map(id => cardMap[id]).filter(Boolean);
+        this.holdingList = (data.holdingIds || []).map(id => cardMap[id]).filter(Boolean);
+
+        this.renderStage();
+        this.renderDock();
+        this.renderHolding();
+        this.updateCoveredStatus();
+        this.updateRemain();
+        this.updateToolsUI();
+        this.adjustStageScale();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    clearState() {
+      try { localStorage.removeItem(SHEEP_STORAGE_KEY); } catch (e) {}
     }
 
     showAlert({ icon, title, desc, okText, action, showRevive }) {
@@ -701,8 +826,9 @@
   };
 
   class TetrisEngine {
-    constructor(container) {
+    constructor(container, onBackHome) {
       this.container = container;
+      this.onBackHome = onBackHome;
       this.cols = 10;
       this.rows = 20;
       this.blockSize = 18;
@@ -717,24 +843,41 @@
       this.holdPiece = null;
       this.canHold = true;
       this.isGameOver = false;
+      this.isPaused = false;
       this.dropInterval = 800;
       this.lastDropTime = 0;
       this.rafId = null;
 
       this.initDOM();
       this.bindControls();
-      this.start();
+
+      if (!this.loadState()) {
+        this.start();
+      } else {
+        this.lastDropTime = performance.now();
+        this.gameLoop(this.lastDropTime);
+      }
     }
 
     initDOM() {
       this.container.innerHTML = `
         <div class="tetris-wrapper">
+          <!-- 顶部子操作栏 -->
+          <div class="sheep-sub-header" style="width: 100%; max-width: 360px; border-radius: 8px; margin-bottom: 4px;">
+            <button class="sheep-mini-btn" id="tetrisBackBtn" title="返回主页">← 主页</button>
+            <span style="color:#fff; font-size:12px; font-weight:bold;">🧱 俄罗斯方块</span>
+            <div style="display:flex; gap:6px;">
+              <button class="sheep-mini-btn" id="tetrisPauseBtn" title="暂停/继续">⏸</button>
+              <button class="sheep-mini-btn" id="tetrisRestartBtn" title="重新开始">🔄</button>
+            </div>
+          </div>
+
           <div class="tetris-layout">
             <!-- 左侧面板: Hold & Level -->
             <div class="tetris-sidebar">
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Hold</div>
-                <canvas id="tetrisHoldCanvas" class="tetris-preview-canvas" width="50" height="50"></canvas>
+                <canvas id="tetrisHoldCanvas" class="tetris-preview-canvas" width="48" height="48"></canvas>
               </div>
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Level</div>
@@ -755,14 +898,11 @@
             <div class="tetris-sidebar">
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Next</div>
-                <canvas id="tetrisNextCanvas" class="tetris-preview-canvas" width="50" height="50"></canvas>
+                <canvas id="tetrisNextCanvas" class="tetris-preview-canvas" width="48" height="48"></canvas>
               </div>
               <div class="tetris-panel-box">
                 <div class="tetris-panel-title">Score</div>
                 <div class="tetris-panel-val" id="tetrisScore">0</div>
-              </div>
-              <div class="tetris-panel-box" style="padding: 2px;">
-                <button class="sheep-mini-btn" id="tetrisRestartBtn" style="width: 100%;">🔄</button>
               </div>
             </div>
           </div>
@@ -779,6 +919,13 @@
               <button class="tetris-btn" id="btnDown">▼ 软降</button>
               <button class="tetris-btn" id="btnRight">右移 ▶</button>
             </div>
+          </div>
+
+          <!-- 暂停遮罩 -->
+          <div class="stgc-pause-mask" id="tetrisPauseMask">
+            <div class="stgc-pause-icon">⏸</div>
+            <div class="stgc-pause-title">游戏已暂停</div>
+            <div class="stgc-pause-hint">点击屏幕任意处继续</div>
           </div>
 
           <!-- 结算弹窗 -->
@@ -808,6 +955,9 @@
       this.linesEl = this.container.querySelector('#tetrisLines');
       this.levelEl = this.container.querySelector('#tetrisLevel');
 
+      this.pauseMask = this.container.querySelector('#tetrisPauseMask');
+      this.pauseBtn = this.container.querySelector('#tetrisPauseBtn');
+
       this.modalEl = this.container.querySelector('#tetrisModal');
       this.modalTitle = this.container.querySelector('#tetrisModalTitle');
       this.modalDesc = this.container.querySelector('#tetrisModalDesc');
@@ -816,7 +966,7 @@
 
     bindControls() {
       this.keyHandler = (e) => {
-        if (this.isGameOver) return;
+        if (this.isGameOver || this.isPaused) return;
         switch (e.code) {
           case 'ArrowLeft': case 'KeyA':
             this.move(-1); e.preventDefault(); break;
@@ -839,7 +989,7 @@
         if (btn) {
           btn.addEventListener('pointerdown', (e) => {
             e.preventDefault();
-            fn();
+            if (!this.isPaused) fn();
           });
         }
       };
@@ -851,11 +1001,30 @@
       addClick('#btnHardDrop', () => this.hardDrop());
       addClick('#btnHold', () => this.hold());
 
-      this.container.querySelector('#tetrisRestartBtn').addEventListener('click', () => this.start());
-      this.modalOkBtn.addEventListener('click', () => {
-        this.modalEl.classList.remove('active');
+      this.container.querySelector('#tetrisBackBtn').addEventListener('click', () => {
+        this.saveState();
+        if (this.onBackHome) this.onBackHome();
+      });
+
+      this.pauseBtn.addEventListener('click', () => this.togglePause());
+      this.pauseMask.addEventListener('click', () => this.togglePause(false));
+
+      this.container.querySelector('#tetrisRestartBtn').addEventListener('click', () => {
+        this.clearState();
         this.start();
       });
+
+      this.modalOkBtn.addEventListener('click', () => {
+        this.modalEl.classList.remove('active');
+        this.clearState();
+        this.start();
+      });
+    }
+
+    togglePause(force) {
+      this.isPaused = force !== undefined ? force : !this.isPaused;
+      this.pauseMask.classList.toggle('active', this.isPaused);
+      this.pauseBtn.textContent = this.isPaused ? '▶' : '⏸';
     }
 
     destroy() {
@@ -872,6 +1041,7 @@
       this.holdPiece = null;
       this.canHold = true;
       this.isGameOver = false;
+      this.isPaused = false;
       this.dropInterval = 800;
 
       this.updateScore(0, 0);
@@ -929,7 +1099,7 @@
     }
 
     move(dir) {
-      if (this.isGameOver) return;
+      if (this.isGameOver || this.isPaused) return;
       if (!this.collide(this.currentPiece.x + dir, this.currentPiece.y, this.currentPiece.matrix)) {
         this.currentPiece.x += dir;
         sound.playTone(300, 'triangle', 0.04);
@@ -938,7 +1108,7 @@
     }
 
     rotate() {
-      if (this.isGameOver) return;
+      if (this.isGameOver || this.isPaused) return;
       const m = this.currentPiece.matrix;
       const rotated = m[0].map((_, i) => m.map(row => row[i]).reverse());
 
@@ -955,7 +1125,7 @@
     }
 
     drop() {
-      if (this.isGameOver) return;
+      if (this.isGameOver || this.isPaused) return;
       if (!this.collide(this.currentPiece.x, this.currentPiece.y + 1, this.currentPiece.matrix)) {
         this.currentPiece.y += 1;
         this.score += 1;
@@ -969,7 +1139,7 @@
     }
 
     hardDrop() {
-      if (this.isGameOver) return;
+      if (this.isGameOver || this.isPaused) return;
       let droppedCells = 0;
       while (!this.collide(this.currentPiece.x, this.currentPiece.y + 1, this.currentPiece.matrix)) {
         this.currentPiece.y += 1;
@@ -982,7 +1152,7 @@
     }
 
     hold() {
-      if (this.isGameOver || !this.canHold) return;
+      if (this.isGameOver || !this.canHold || this.isPaused) return;
       sound.playTool();
       const currentType = this.currentPiece.type;
 
@@ -1011,6 +1181,7 @@
       this.canHold = false;
       this.drawHold();
       this.draw();
+      this.saveState();
     }
 
     lockPiece() {
@@ -1030,6 +1201,7 @@
       this.clearLines();
       this.spawnPiece();
       this.draw();
+      this.saveState();
     }
 
     clearLines() {
@@ -1067,13 +1239,62 @@
     gameOver() {
       this.isGameOver = true;
       sound.playLose();
+      this.clearState();
       this.modalDesc.textContent = `最终得分: ${this.score} | 消除行数: ${this.lines}`;
       this.modalEl.classList.add('active');
     }
 
+    saveState() {
+      try {
+        if (this.isGameOver) return;
+        const data = {
+          board: this.board,
+          score: this.score,
+          lines: this.lines,
+          level: this.level,
+          currentPiece: this.currentPiece,
+          nextPiece: this.nextPiece,
+          holdPiece: this.holdPiece
+        };
+        localStorage.setItem(TETRIS_STORAGE_KEY, JSON.stringify(data));
+      } catch (e) {}
+    }
+
+    loadState() {
+      try {
+        const raw = localStorage.getItem(TETRIS_STORAGE_KEY);
+        if (!raw) return false;
+        const data = JSON.parse(raw);
+        if (!data || !Array.isArray(data.board)) return false;
+
+        this.board = data.board;
+        this.score = data.score || 0;
+        this.lines = data.lines || 0;
+        this.level = data.level || 1;
+        this.currentPiece = data.currentPiece;
+        this.nextPiece = data.nextPiece;
+        this.holdPiece = data.holdPiece;
+
+        this.scoreEl.textContent = this.score;
+        this.linesEl.textContent = this.lines;
+        this.levelEl.textContent = this.level;
+
+        this.drawNext();
+        this.drawHold();
+        this.draw();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    clearState() {
+      try { localStorage.removeItem(TETRIS_STORAGE_KEY); } catch (e) {}
+    }
+
     gameLoop(timestamp) {
       if (this.isGameOver) return;
-      if (timestamp - this.lastDropTime > this.dropInterval) {
+      if (!this.isPaused && timestamp - this.lastDropTime > this.dropInterval) {
         this.drop();
         this.lastDropTime = timestamp;
       }
@@ -1140,11 +1361,9 @@
     drawBlock(ctx, x, y, size, color) {
       ctx.fillStyle = color;
       ctx.fillRect(x + 1, y + 1, size - 2, size - 2);
-
       ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
       ctx.fillRect(x + 1, y + 1, size - 2, 2);
       ctx.fillRect(x + 1, y + 1, 2, size - 2);
-
       ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
       ctx.fillRect(x + size - 3, y + 1, 2, size - 2);
       ctx.fillRect(x + 1, y + size - 3, size - 2, 2);
@@ -1179,23 +1398,58 @@
     drawHold() { this.drawPreview(this.holdCanvas, this.holdCtx, this.holdPiece); }
   }
 
-  // ================= 4. SillyTavern 插件全局路由与悬浮球管理 =================
+  // ================= 4. 全局调度器、主页Hub与酒馆菜单无缝挂载 =================
   class SillyGamePlugin {
     constructor() {
-      this.activeGame = 'sheep';
+      this.currentView = 'home'; // 'home' | 'sheep' | 'tetris'
       this.sheepInstance = null;
       this.tetrisInstance = null;
       this.launcherVisible = true;
 
-      const savedLauncher = localStorage.getItem(LAUNCHER_ENABLED_KEY);
-      if (savedLauncher !== null) {
-        this.launcherVisible = savedLauncher === 'true';
+      const savedLauncher = localStorage.getItem(LAUNCHER_HIDDEN_KEY);
+      if (savedLauncher === '1') {
+        this.launcherVisible = false;
       }
 
       this.initLauncher();
       this.initModal();
       this.bindShortcuts();
-      this.tryInjectSettings();
+      this.startHeartbeatHooks();
+    }
+
+    getViewportSize() {
+      return {
+        width: Math.max(window.innerWidth || 360, 240),
+        height: Math.max(window.innerHeight || 640, 240),
+      };
+    }
+
+    clampLauncherPosition(x, y) {
+      const vp = this.getViewportSize();
+      const margin = 8;
+      return {
+        x: Math.min(Math.max(x, margin), vp.width - 56 - margin),
+        y: Math.min(Math.max(y, margin), vp.height - 56 - margin),
+      };
+    }
+
+    setLauncherPosition(x, y, save = true) {
+      const launcher = document.getElementById(`${PLUGIN_ID}-launcher`);
+      if (!launcher) return;
+      const pos = this.clampLauncherPosition(x, y);
+      launcher.style.left = `${pos.x}px`;
+      launcher.style.top = `${pos.y}px`;
+      launcher.style.right = 'auto';
+      launcher.style.bottom = 'auto';
+      if (save) {
+        try { localStorage.setItem(LAUNCHER_POS_KEY, JSON.stringify(pos)); } catch (e) {}
+      }
+    }
+
+    resetLauncherPosition() {
+      const vp = this.getViewportSize();
+      // 默认安全落位在右侧，避开底部输入框
+      this.setLauncherPosition(vp.width - 64, vp.height - 150, true);
     }
 
     initLauncher() {
@@ -1203,7 +1457,7 @@
 
       const launcher = document.createElement('div');
       launcher.id = `${PLUGIN_ID}-launcher`;
-      launcher.className = 'stgc-launcher';
+      launcher.className = `stgc-launcher ${this.launcherVisible ? '' : 'is-hidden'}`;
       launcher.title = '打开小游戏中心 (Alt+G)';
       launcher.innerHTML = `
         <svg class="stgc-launcher-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1211,117 +1465,80 @@
         </svg>
       `;
 
-      if (!this.launcherVisible) {
-        launcher.style.display = 'none';
-      }
+      // 备用召回浮条
+      const restore = document.createElement('div');
+      restore.id = `${PLUGIN_ID}-restore`;
+      restore.className = `stgc-restore-handle ${this.launcherVisible ? '' : 'show'}`;
+      restore.title = '唤醒 SheepBlock 游戏悬浮球';
+      restore.textContent = '🎮';
+      restore.addEventListener('click', () => this.setLauncherVisible(true));
 
-      const savedPos = localStorage.getItem(LAUNCHER_POS_KEY);
-      if (savedPos) {
-        try {
-          const { x, y } = JSON.parse(savedPos);
-          launcher.style.left = `${x}px`;
-          launcher.style.top = `${y}px`;
-          launcher.style.right = 'auto';
-          launcher.style.bottom = 'auto';
-        } catch (e) {}
-      }
-
-      let isDragging = false;
-      let startX = 0, startY = 0;
-      let initLeft = 0, initTop = 0;
-      let hasMoved = false;
-
-      const onPointerDown = (e) => {
-        isDragging = true;
-        hasMoved = false;
-        startX = e.clientX;
-        startY = e.clientY;
+      // 拖拽逻辑
+      let drag = null;
+      launcher.addEventListener('pointerdown', (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
         const rect = launcher.getBoundingClientRect();
-        initLeft = rect.left;
-        initTop = rect.top;
+        drag = {
+          pointerId: e.pointerId,
+          startX: e.clientX,
+          startY: e.clientY,
+          originX: rect.left,
+          originY: rect.top,
+          moved: false
+        };
         launcher.setPointerCapture?.(e.pointerId);
-      };
+      });
 
-      const onPointerMove = (e) => {
-        if (!isDragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
-        if (Math.hypot(dx, dy) > 4) hasMoved = true;
+      launcher.addEventListener('pointermove', (e) => {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+        drag.moved = true;
+        this.setLauncherPosition(drag.originX + dx, drag.originY + dy, false);
+      });
 
-        let curX = Math.max(10, Math.min(window.innerWidth - 56, initLeft + dx));
-        let curY = Math.max(10, Math.min(window.innerHeight - 56, initTop + dy));
-
-        launcher.style.left = `${curX}px`;
-        launcher.style.top = `${curY}px`;
-        launcher.style.right = 'auto';
-        launcher.style.bottom = 'auto';
-      };
-
-      const onPointerUp = (e) => {
-        if (!isDragging) return;
-        isDragging = false;
-        launcher.releasePointerCapture?.(e.pointerId);
-
-        if (hasMoved) {
+      const endDrag = (e) => {
+        if (!drag || e.pointerId !== drag.pointerId) return;
+        const moved = drag.moved;
+        drag = null;
+        if (moved) {
           const rect = launcher.getBoundingClientRect();
-          localStorage.setItem(LAUNCHER_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+          this.setLauncherPosition(rect.left, rect.top, true);
         } else {
-          this.toggleModal();
+          this.openModal();
         }
       };
 
-      launcher.addEventListener('pointerdown', onPointerDown);
-      launcher.addEventListener('pointermove', onPointerMove);
-      launcher.addEventListener('pointerup', onPointerUp);
+      launcher.addEventListener('pointerup', endDrag);
+      launcher.addEventListener('pointercancel', () => { drag = null; });
 
-      document.body.appendChild(launcher);
-    }
+      document.body.append(launcher, restore);
 
-    // 尝试在 SillyTavern 的“扩展设置”面板中挂载菜单卡片
-    tryInjectSettings() {
-      let attempts = 0;
-      const checkAndInject = () => {
-        const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
-        if (container && !document.getElementById('st-sheepblock-settings')) {
-          const card = document.createElement('div');
-          card.id = 'st-sheepblock-settings';
-          card.className = 'stgc-settings-card';
-          card.innerHTML = `
-            <div class="stgc-settings-card-title">🎮 SillyTavern SheepBlock (小游戏中心)</div>
-            <button type="button" class="stgc-settings-open-btn" id="stgcOpenDirectBtn">
-              🎮 启动游戏中心 (羊了个羊 & 俄罗斯方块)
-            </button>
-            <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#cbd5e1; cursor:pointer;">
-              <input type="checkbox" id="stgcToggleLauncherCb" ${this.launcherVisible ? 'checked' : ''}>
-              <span>在屏幕右下角显示浮动手柄悬浮球</span>
-            </label>
-          `;
-          container.appendChild(card);
-
-          card.querySelector('#stgcOpenDirectBtn').addEventListener('click', () => {
-            this.openModal();
-          });
-
-          card.querySelector('#stgcToggleLauncherCb').addEventListener('change', (e) => {
-            this.setLauncherVisible(e.target.checked);
-          });
-
-          return true;
+      // 计算初始落位
+      const saved = localStorage.getItem(LAUNCHER_POS_KEY);
+      if (saved) {
+        try {
+          const pos = JSON.parse(saved);
+          this.setLauncherPosition(pos.x, pos.y, false);
+        } catch (e) {
+          requestAnimationFrame(() => this.resetLauncherPosition());
         }
-        if (attempts++ < 30) {
-          setTimeout(checkAndInject, 500);
-        }
-      };
-      checkAndInject();
+      } else {
+        requestAnimationFrame(() => this.resetLauncherPosition());
+      }
     }
 
     setLauncherVisible(visible) {
       this.launcherVisible = visible;
-      localStorage.setItem(LAUNCHER_ENABLED_KEY, String(visible));
+      localStorage.setItem(LAUNCHER_HIDDEN_KEY, visible ? '0' : '1');
       const launcher = document.getElementById(`${PLUGIN_ID}-launcher`);
-      if (launcher) {
-        launcher.style.display = visible ? 'flex' : 'none';
-      }
+      const restore = document.getElementById(`${PLUGIN_ID}-restore`);
+      if (launcher) launcher.classList.toggle('is-hidden', !visible);
+      if (restore) restore.classList.toggle('show', !visible);
+
+      const cb = document.getElementById('stgcToggleLauncherCb');
+      if (cb) cb.checked = visible;
     }
 
     initModal() {
@@ -1333,23 +1550,15 @@
 
       mask.innerHTML = `
         <div class="stgc-window" id="${PLUGIN_ID}-win">
-          <header class="stgc-header">
-            <div class="stgc-header-left">
-              <span>🎮 SheepBlock</span>
+          <header class="stgc-header" id="stgcMainHeader">
+            <div class="stgc-header-title">
+              <span>🎮 SheepBlock 游戏中心</span>
             </div>
-            <div class="stgc-tabs">
-              <button class="stgc-tab-btn active" data-game="sheep">🐑 羊了个羊</button>
-              <button class="stgc-tab-btn" data-game="tetris">🧱 俄罗斯方块</button>
-            </div>
-            <div class="stgc-header-right">
-              <button class="stgc-ctrl-btn" id="stgcFullscreenBtn" title="全屏切换">⛶</button>
-              <button class="stgc-ctrl-btn close" id="stgcCloseBtn" title="关闭 (Esc)">✕</button>
+            <div style="display:flex; gap:6px;">
+              <button class="stgc-header-btn close" id="stgcCloseBtn" title="关闭 (Esc)">✕</button>
             </div>
           </header>
-          <div class="stgc-body">
-            <div class="stgc-game-view active" id="viewSheep"></div>
-            <div class="stgc-game-view" id="viewTetris"></div>
-          </div>
+          <div class="stgc-body" id="stgcMainBody"></div>
         </div>
       `;
 
@@ -1360,85 +1569,182 @@
       document.body.appendChild(mask);
       this.mask = mask;
       this.win = mask.querySelector(`#${PLUGIN_ID}-win`);
-
-      const tabBtns = mask.querySelectorAll('.stgc-tab-btn');
-      tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          this.switchGame(btn.dataset.game);
-        });
-      });
+      this.body = mask.querySelector('#stgcMainBody');
 
       mask.querySelector('#stgcCloseBtn').addEventListener('click', () => this.closeModal());
-      mask.querySelector('#stgcFullscreenBtn').addEventListener('click', () => {
-        this.win.classList.toggle('fullscreen');
-      });
+    }
+
+    renderHome() {
+      this.currentView = 'home';
+      document.getElementById('stgcMainHeader').style.display = 'flex';
+      this.body.innerHTML = `
+        <div class="stgc-home-view">
+          <div class="stgc-home-intro">
+            <div class="stgc-home-title">随手玩一局，不打扰聊天</div>
+            <div class="stgc-home-desc">专为 SillyTavern 打造的休闲解压游戏合集</div>
+          </div>
+
+          <div class="stgc-game-grid">
+            <!-- 羊了个羊卡片 -->
+            <div class="stgc-game-card" id="cardGoSheep">
+              <div class="stgc-card-icon-box sheep">🐑</div>
+              <div class="stgc-card-info">
+                <div class="stgc-card-top-row">
+                  <div class="stgc-card-title">羊了个羊</div>
+                  <span class="stgc-card-badge">爽玩版</span>
+                </div>
+                <div class="stgc-card-desc">
+                  经典多层堆叠三消 · 道具初始各5次 · 5格暂存区 · 无限补给杜绝死局
+                </div>
+              </div>
+              <div class="stgc-card-arrow">›</div>
+            </div>
+
+            <!-- 俄罗斯方块卡片 -->
+            <div class="stgc-game-card" id="cardGoTetris">
+              <div class="stgc-card-icon-box tetris">🧱</div>
+              <div class="stgc-card-info">
+                <div class="stgc-card-top-row">
+                  <div class="stgc-card-title">俄罗斯方块</div>
+                  <span class="stgc-card-badge">现代竞技</span>
+                </div>
+                <div class="stgc-card-desc">
+                  官方 7-Bag 均匀发牌 · 幽灵落点投影 · Hold 换块暂存 · 手机专属虚拟手柄
+                </div>
+              </div>
+              <div class="stgc-card-arrow">›</div>
+            </div>
+          </div>
+        </div>
+      `;
+
+      this.body.querySelector('#cardGoSheep').addEventListener('click', () => this.launchSheep());
+      this.body.querySelector('#cardGoTetris').addEventListener('click', () => this.launchTetris());
+    }
+
+    launchSheep() {
+      this.currentView = 'sheep';
+      document.getElementById('stgcMainHeader').style.display = 'none'; // 使用羊了个羊专属顶部子栏
+      this.body.innerHTML = '<div id="sheepRoot" style="height:100%; display:flex; flex-direction:column;"></div>';
+      const root = this.body.querySelector('#sheepRoot');
+      this.sheepInstance = new SheepEngine(root, () => this.renderHome());
+    }
+
+    launchTetris() {
+      this.currentView = 'tetris';
+      document.getElementById('stgcMainHeader').style.display = 'none'; // 使用俄罗斯方块专属顶部子栏
+      this.body.innerHTML = '<div id="tetrisRoot" style="height:100%; display:flex; flex-direction:column;"></div>';
+      const root = this.body.querySelector('#tetrisRoot');
+      this.tetrisInstance = new TetrisEngine(root, () => this.renderHome());
+    }
+
+    openModal() {
+      this.mask.classList.add('show');
+      if (this.currentView === 'home') {
+        this.renderHome();
+      }
+    }
+
+    closeModal() {
+      if (this.sheepInstance) this.sheepInstance.saveState();
+      if (this.tetrisInstance) {
+        this.tetrisInstance.saveState();
+        this.tetrisInstance.destroy();
+        this.tetrisInstance = null;
+      }
+      this.mask.classList.remove('show');
     }
 
     bindShortcuts() {
       window.addEventListener('keydown', (e) => {
         if (e.altKey && (e.key === 'g' || e.key === 'G')) {
           e.preventDefault();
-          this.toggleModal();
+          if (this.mask.classList.contains('show')) this.closeModal();
+          else this.openModal();
         } else if (e.key === 'Escape' && this.mask?.classList.contains('show')) {
           this.closeModal();
         }
       });
     }
 
-    toggleModal() {
-      if (this.mask.classList.contains('show')) {
-        this.closeModal();
-      } else {
-        this.openModal();
+    // ================= 5. 酒馆原生界面联动 (设置抽屉 + 魔法棒菜单) =================
+    startHeartbeatHooks() {
+      // 周期性检查与挂载，抵抗酒馆切角色或动态DOM重建
+      setInterval(() => {
+        this.injectSettingsDrawer();
+        this.injectExtensionsMenuButton();
+        this.ensureLauncherAlive();
+      }, 1000);
+    }
+
+    ensureLauncherAlive() {
+      if (!document.getElementById(`${PLUGIN_ID}-launcher`)) {
+        this.initLauncher();
       }
     }
 
-    openModal() {
-      this.mask.classList.add('show');
-      this.switchGame(this.activeGame);
-    }
+    // 注入酒馆设置面板
+    injectSettingsDrawer() {
+      const container = document.getElementById('extensions_settings2') || document.getElementById('extensions_settings');
+      if (container && !document.getElementById('st-sheepblock-settings')) {
+        const card = document.createElement('div');
+        card.id = 'st-sheepblock-settings';
+        card.className = 'stgc-settings-card';
+        card.innerHTML = `
+          <div class="stgc-settings-card-title">🎮 SillyTavern SheepBlock (小游戏中心)</div>
+          <button type="button" class="stgc-settings-open-btn" id="stgcOpenDirectBtn">
+            🎮 启动游戏中心 (羊了个羊 & 俄罗斯方块)
+          </button>
+          <label style="display:flex; align-items:center; gap:6px; margin-top:8px; font-size:12px; color:#cbd5e1; cursor:pointer;">
+            <input type="checkbox" id="stgcToggleLauncherCb" ${this.launcherVisible ? 'checked' : ''}>
+            <span>在屏幕上显示浮动手柄悬浮球</span>
+          </label>
+        `;
+        container.appendChild(card);
 
-    closeModal() {
-      this.mask.classList.remove('show');
-      if (this.tetrisInstance) {
-        this.tetrisInstance.destroy();
-        this.tetrisInstance = null;
+        card.querySelector('#stgcOpenDirectBtn').addEventListener('click', () => {
+          this.openModal();
+        });
+
+        card.querySelector('#stgcToggleLauncherCb').addEventListener('change', (e) => {
+          this.setLauncherVisible(e.target.checked);
+        });
       }
     }
 
-    switchGame(gameKey) {
-      this.activeGame = gameKey;
-      const viewSheep = document.getElementById('viewSheep');
-      const viewTetris = document.getElementById('viewTetris');
-
-      if (gameKey === 'sheep') {
-        viewSheep.classList.add('active');
-        viewTetris.classList.remove('active');
-        if (this.tetrisInstance) {
-          this.tetrisInstance.destroy();
-          this.tetrisInstance = null;
-        }
-        if (!this.sheepInstance) {
-          this.sheepInstance = new SheepEngine(viewSheep);
-        }
-      } else if (gameKey === 'tetris') {
-        viewTetris.classList.add('active');
-        viewSheep.classList.remove('active');
-        if (!this.tetrisInstance) {
-          this.tetrisInstance = new TetrisEngine(viewTetris);
-        }
+    // 完美注入图片 4 中的酒馆原生扩展菜单 (Extensions Context Menu)
+    injectExtensionsMenuButton() {
+      // 探测酒馆不同版本下的扩展菜单容器
+      const menuContainer = document.getElementById('extensions_menu') || document.querySelector('.extensions_menu');
+      if (menuContainer && !document.getElementById('st_sheepblock_menu_entry')) {
+        const item = document.createElement('div');
+        item.id = 'st_sheepblock_menu_entry';
+        item.className = 'list-group-item extension_menu_button';
+        item.style.cursor = 'pointer';
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.gap = '8px';
+        item.innerHTML = `
+          <span style="font-size:16px;">🎮</span>
+          <span>SheepBlock 小游戏</span>
+        `;
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // 关闭当前下拉菜单
+          if (menuContainer) menuContainer.style.display = 'none';
+          this.openModal();
+        });
+        menuContainer.appendChild(item);
       }
     }
   }
 
-  // 全局辅助与初始化
+  // 全局暴露与开箱自启
   window.openSheepBlock = () => window.sillyGamePlus?.openModal();
 
   function init() {
     window.sillyGamePlus = new SillyGamePlugin();
-    console.log('[SillyTavern SheepBlock] 小游戏插件已成功加载与挂载！');
+    console.log('[SillyTavern SheepBlock] 升级版全功能游戏中心已挂载就绪！');
   }
 
   if (document.readyState === 'loading') {
