@@ -147,37 +147,48 @@
               <span class="sheep-remain">余: <b id="sheepRemain">0</b></span>
             </div>
             <div class="sheep-actions-top">
-              <button class="sheep-mini-btn" id="sheepPauseBtn" title="暂停/继续">⏸</button>
+              <button class="sheep-mini-btn" id="sheepPauseBtn" title="暂停/继续">⏸ 暂停</button>
               <button class="sheep-mini-btn supply" id="sheepSupplyBtn" title="补充全部道具+3次">⚡ 补给(+3)</button>
               <button class="sheep-mini-btn" id="sheepRestartBtn" title="重新开始本关">🔄</button>
             </div>
           </div>
 
-          <!-- 5格大容量暂存区 -->
+          <!-- 5格大容量暂存区 (严格 1:1 对齐槽位) -->
           <div class="sheep-holding">
-            <div class="sheep-holding-label">暂存区 (最多5格，可随时点击收回)</div>
-            <div class="sheep-holding-slots" id="sheepHoldingSlots"></div>
+            <div class="sheep-holding-label">暂存区 (最多5格，点击卡牌放回卡槽)</div>
+            <div class="sheep-holding-inner">
+              <div class="sheep-holding-slots-bg">
+                <div class="sheep-holding-cell"></div>
+                <div class="sheep-holding-cell"></div>
+                <div class="sheep-holding-cell"></div>
+                <div class="sheep-holding-cell"></div>
+                <div class="sheep-holding-cell"></div>
+              </div>
+              <div class="sheep-holding-cards" id="sheepHoldingSlots"></div>
+            </div>
           </div>
 
-          <!-- 卡牌主舞台 (限定高度 235px) -->
+          <!-- 卡牌主舞台：饱满铺开，消除上下多余空隙 -->
           <div class="sheep-stage-box">
             <div class="sheep-stage" id="sheepStage"></div>
           </div>
 
           <!-- 底部固定单元：包含卡槽与道具栏，100%必定显示 -->
           <div class="sheep-bottom-unit">
-            <!-- 7格卡槽 -->
+            <!-- 7格卡槽 (严格 1:1 对齐槽位) -->
             <div class="sheep-dock">
-              <div class="sheep-dock-slots-bg">
-                <div class="sheep-dock-cell"></div>
-                <div class="sheep-dock-cell"></div>
-                <div class="sheep-dock-cell"></div>
-                <div class="sheep-dock-cell"></div>
-                <div class="sheep-dock-cell"></div>
-                <div class="sheep-dock-cell"></div>
-                <div class="sheep-dock-cell"></div>
+              <div class="sheep-dock-inner">
+                <div class="sheep-dock-slots-bg">
+                  <div class="sheep-dock-cell"></div>
+                  <div class="sheep-dock-cell"></div>
+                  <div class="sheep-dock-cell"></div>
+                  <div class="sheep-dock-cell"></div>
+                  <div class="sheep-dock-cell"></div>
+                  <div class="sheep-dock-cell"></div>
+                  <div class="sheep-dock-cell"></div>
+                </div>
+                <div class="sheep-dock-cards" id="sheepDockCards"></div>
               </div>
-              <div class="sheep-dock-cards" id="sheepDockCards"></div>
             </div>
 
             <!-- 道具栏 -->
@@ -200,9 +211,13 @@
             </div>
           </div>
 
-          <!-- 暂停遮罩 -->
+          <!-- 暂停遮罩 - 直观醒目的继续播放图标 -->
           <div class="stgc-pause-mask" id="sheepPauseMask">
-            <div class="stgc-pause-icon">⏸</div>
+            <div class="stgc-pause-play-btn" title="点击继续游戏">
+              <svg viewBox="0 0 24 24" width="36" height="36" fill="#ffffff">
+                <path d="M8 5v14l11-7z"/>
+              </svg>
+            </div>
             <div class="stgc-pause-title">游戏已暂停</div>
             <div class="stgc-pause-hint">点击屏幕任意处继续</div>
           </div>
@@ -292,7 +307,7 @@
     togglePause(force) {
       this.isPaused = force !== undefined ? force : !this.isPaused;
       this.pauseMask.classList.toggle('active', this.isPaused);
-      this.pauseBtn.textContent = this.isPaused ? '▶' : '⏸';
+      this.pauseBtn.textContent = this.isPaused ? '▶ 继续' : '⏸ 暂停';
     }
 
     startLevel(lvl) {
@@ -321,7 +336,7 @@
       this.saveState();
     }
 
-    // 第一关：紧凑排布
+    // 第一关：饱满排布 (42x48 卡牌，充实舞台)
     generateLevel1() {
       const types = SHEEP_TYPES.slice(0, 3);
       const cardPool = [];
@@ -332,12 +347,17 @@
       this.shuffle(cardPool);
 
       const positions = [
-        { x: 38, y: 15, z: 0 }, { x: 140, y: 15, z: 0 }, { x: 242, y: 15, z: 0 },
-        { x: 38, y: 80, z: 0 }, { x: 140, y: 80, z: 0 }, { x: 242, y: 80, z: 0 },
-        { x: 38, y: 145, z: 0 }, { x: 140, y: 145, z: 0 }, { x: 242, y: 145, z: 0 },
-        { x: 89, y: 47, z: 1 }, { x: 191, y: 47, z: 1 }, { x: 89, y: 112, z: 1 },
-        { x: 191, y: 112, z: 1 }, { x: 140, y: 80, z: 1 },
-        { x: 115, y: 64, z: 2 }, { x: 165, y: 64, z: 2 }, { x: 115, y: 96, z: 2 }, { x: 165, y: 96, z: 2 },
+        // 底层 3x3 均匀分布在 340x270 区域内
+        { x: 34, y: 25, z: 0 }, { x: 149, y: 25, z: 0 }, { x: 264, y: 25, z: 0 },
+        { x: 34, y: 115, z: 0 }, { x: 149, y: 115, z: 0 }, { x: 264, y: 115, z: 0 },
+        { x: 34, y: 205, z: 0 }, { x: 149, y: 205, z: 0 }, { x: 264, y: 205, z: 0 },
+        // 中层 5 张交错
+        { x: 91, y: 70, z: 1 }, { x: 206, y: 70, z: 1 },
+        { x: 91, y: 160, z: 1 }, { x: 206, y: 160, z: 1 },
+        { x: 149, y: 115, z: 1 },
+        // 顶层 4 张中心叠放
+        { x: 120, y: 92, z: 2 }, { x: 178, y: 92, z: 2 },
+        { x: 120, y: 138, z: 2 }, { x: 178, y: 138, z: 2 },
       ];
 
       this.allCards = cardPool.map((item, idx) => ({
@@ -348,45 +368,46 @@
         x: positions[idx].x,
         y: positions[idx].y,
         z: positions[idx].z,
-        width: 38,
-        height: 42,
+        width: 42,
+        height: 48,
         state: 'stage',
         isCovered: false,
         el: null
       }));
     }
 
-    // 第二关：高度严格控制在 230px 内的金字塔
+    // 第二关：饱满立体金字塔，高度展开至 320px，消除上下大空隙
     generateLevel2() {
       const positions = [];
-      // 第0层：5x5 网格
+      // 第0层：5x5 宽裕网格 (高度覆盖 20 ~ 188px)
       for (let r = 0; r < 5; r++) {
         for (let c = 0; c < 5; c++) {
-          if (Math.random() > 0.15) positions.push({ x: 50 + c * 42, y: 15 + r * 34, z: 0 });
+          if (Math.random() > 0.15) positions.push({ x: 57 + c * 46, y: 20 + r * 38, z: 0 });
         }
       }
       // 第1层：4x4
       for (let r = 0; r < 4; r++) {
         for (let c = 0; c < 4; c++) {
-          if (Math.random() > 0.1) positions.push({ x: 71 + c * 42, y: 32 + r * 34, z: 1 });
+          if (Math.random() > 0.1) positions.push({ x: 80 + c * 46, y: 39 + r * 38, z: 1 });
         }
       }
       // 第2层：3x3
       for (let r = 0; r < 3; r++) {
-        for (let c = 0; c < 3; c++) positions.push({ x: 92 + c * 42, y: 49 + r * 34, z: 2 });
+        for (let c = 0; c < 3; c++) positions.push({ x: 103 + c * 46, y: 58 + r * 38, z: 2 });
       }
       // 第3层：2x2
       for (let r = 0; r < 2; r++) {
-        for (let c = 0; c < 2; c++) positions.push({ x: 113 + c * 42, y: 66 + r * 34, z: 3 });
+        for (let c = 0; c < 2; c++) positions.push({ x: 126 + c * 46, y: 77 + r * 38, z: 3 });
       }
       // 尖顶
-      positions.push({ x: 134, y: 83, z: 4 });
+      positions.push({ x: 149, y: 96, z: 4 });
 
-      // 左右暗牌堆 (紧凑叠放)
-      for (let i = 0; i < 8; i++) positions.push({ x: 6, y: 25 + i * 4, z: 10 + i });
-      for (let i = 0; i < 8; i++) positions.push({ x: 276, y: 25 + i * 4, z: 10 + i });
-      // 底部备用卡牌 (y: 185, 加上卡牌高42 = 227px，完全在230px内)
-      for (let i = 0; i < 4; i++) positions.push({ x: 55 + i * 54, y: 185, z: 1 });
+      // 左右暗牌盲盒堆 (层叠在两侧，高低错落，充实横向)
+      for (let i = 0; i < 8; i++) positions.push({ x: 6, y: 35 + i * 6, z: 10 + i });
+      for (let i = 0; i < 8; i++) positions.push({ x: 292, y: 35 + i * 6, z: 10 + i });
+
+      // 底部备用明牌 (横排在金字塔正下方，充实下半部分大空白)
+      for (let i = 0; i < 4; i++) positions.push({ x: 59 + i * 60, y: 270, z: 1 });
 
       let total = positions.length;
       const rem = total % 3;
@@ -408,8 +429,8 @@
         x: pos.x,
         y: pos.y,
         z: pos.z,
-        width: 38,
-        height: 42,
+        width: 42,
+        height: 48,
         state: 'stage',
         isCovered: false,
         el: null

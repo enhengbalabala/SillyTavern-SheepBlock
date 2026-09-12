@@ -309,34 +309,67 @@
   box-shadow: 0 2px 0 #b45309;
 }
 
-/* 5格暂存区 */
+/* 5格暂存区 - 与卡牌严格 1:1 居中对齐 */
 .sheep-holding {
-  height: 42px;
+  height: 60px;
   margin: 2px 8px 0;
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
-  border: 1.5px dashed rgba(255, 255, 255, 0.4);
+  border: 1.5px dashed rgba(255, 255, 255, 0.35);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  padding: 2px 0;
 }
 
 .sheep-holding-label {
   font-size: 9px;
   color: rgba(255, 255, 255, 0.85);
-  margin-bottom: 1px;
+  margin-bottom: 2px;
 }
 
-.sheep-holding-slots {
+.sheep-holding-inner {
+  width: 226px;
+  height: 48px;
+  position: relative;
   display: flex;
-  gap: 4px;
-  min-height: 28px;
   align-items: center;
 }
 
-/* 卡牌主舞台：自适应分配剩余垂直空间，绝不顶推底栏 */
+.sheep-holding-slots-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: 4px;
+}
+
+.sheep-holding-cell {
+  width: 42px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sheep-holding-cards {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: 4px;
+  z-index: 10;
+}
+
+/* 卡牌主舞台：饱满铺满屏幕中间，消除上下多余空隙 */
 .sheep-stage-box {
   flex: 1 !important;
   min-height: 0 !important;
@@ -346,24 +379,25 @@
   justify-content: center !important;
   align-items: center !important;
   overflow: hidden !important;
+  padding: 4px 0 !important;
 }
 
 .sheep-stage {
-  width: 320px;
-  height: 230px;
+  width: 340px;
+  height: 350px;
   position: relative;
   max-width: 100%;
 }
 
-/* 紧凑精致卡牌 */
+/* 饱满清晰卡牌 */
 .sheep-card {
-  width: 38px;
-  height: 42px;
+  width: 42px;
+  height: 48px;
   position: absolute;
   border-radius: 6px;
   background: #ffffff;
   border: 1.5px solid #e2d9c8;
-  box-shadow: 0 2.5px 0 #b8a892, 0 3px 5px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2.5px 0 #b8a892, 0 3px 6px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -374,12 +408,12 @@
 }
 
 .sheep-card .sheep-card-icon {
-  font-size: 20px;
+  font-size: 24px;
   line-height: 1;
 }
 
 .sheep-card .sheep-card-name {
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 700;
   color: #78350f;
   margin-top: 1px;
@@ -407,57 +441,71 @@
   z-index: 50 !important;
 }
 
-/* 7格卡槽 */
+/* 7格卡槽 - 像素级严密对齐 */
 .sheep-dock {
-  width: 100%;
-  max-width: 330px;
-  height: 46px;
+  width: 326px;
+  max-width: 100%;
+  height: 54px;
   background: #854d0e;
   border: 2px solid #58310c;
   border-radius: 8px;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
   position: relative;
   display: flex;
   align-items: center;
-  padding: 2px;
+  justify-content: center;
+  padding: 2px 4px;
   margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.sheep-dock-inner {
+  width: 318px;
+  height: 48px;
+  position: relative;
+  display: flex;
+  align-items: center;
 }
 
 .sheep-dock-slots-bg {
   position: absolute;
-  top: 2px;
-  left: 2px;
-  right: 2px;
-  bottom: 2px;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-}
-
-.sheep-dock-cell {
-  width: 38px;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.22);
-  border-radius: 5px;
-  border: 1px dashed rgba(255, 255, 255, 0.15);
-}
-
-.sheep-dock-cards {
-  position: relative;
+  left: 0;
+  top: 0;
   width: 100%;
   height: 100%;
   display: flex;
-  align-items: center;
-  gap: 2px;
+  gap: 4px;
+}
+
+.sheep-dock-cell {
+  width: 42px;
+  height: 48px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.sheep-dock-cards {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  gap: 4px;
   z-index: 10;
 }
 
 .sheep-dock-cards .sheep-card,
-.sheep-holding-slots .sheep-card {
+.sheep-holding-cards .sheep-card {
   position: relative;
   left: auto !important;
   top: auto !important;
   margin: 0;
+  width: 42px !important;
+  height: 48px !important;
   flex-shrink: 0;
 }
 
@@ -516,15 +564,16 @@
   border: 1px solid #fff;
 }
 
-/* 暂停遮罩 */
+/* 暂停遮罩 - 直观醒目的继续播放按钮 */
 .stgc-pause-mask {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(6px);
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   display: none;
   flex-direction: column;
   align-items: center;
@@ -535,9 +584,31 @@
 }
 
 .stgc-pause-mask.active { display: flex; }
-.stgc-pause-icon { font-size: 36px; margin-bottom: 6px; }
-.stgc-pause-title { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
-.stgc-pause-hint { font-size: 11px; color: #94a3b8; }
+
+.stgc-pause-play-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 24px rgba(16, 185, 129, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+  margin-bottom: 12px;
+  animation: stgcPulseBtn 1.5s infinite ease-in-out;
+}
+
+.stgc-pause-play-btn svg {
+  margin-left: 5px;
+}
+
+@keyframes stgcPulseBtn {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 24px rgba(16, 185, 129, 0.5); }
+  50% { transform: scale(1.08); box-shadow: 0 0 32px rgba(16, 185, 129, 0.8); }
+}
+
+.stgc-pause-title { font-size: 17px; font-weight: 800; margin-bottom: 4px; color: #f8fafc; }
+.stgc-pause-hint { font-size: 12px; color: #cbd5e1; background: rgba(255, 255, 255, 0.08); padding: 4px 14px; border-radius: 12px; }
 
 /* ================== 游戏 2: 俄罗斯方块 ================== */
 .tetris-wrapper {
